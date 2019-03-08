@@ -1,0 +1,13 @@
+#!/bin/bash
+
+set -x
+
+mkdir -p _build
+pushd _build
+cmake ..
+make
+popd
+clang-8 -S -emit-llvm -o test.bc test.c
+#opt-8 -instnamer -load _build/*/*LLVMIRPlusPlus* -llvmir++ test.bc > /dev/null
+~/llvm-toolchain-8_8~svn353031/build-llvm/bin/opt $1 -instnamer -load _build/*/*LLVMIRPlusPlus* -llvmir++ test.bc > /dev/null
+rm -rf _build test.bc
