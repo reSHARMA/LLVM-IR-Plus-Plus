@@ -1,11 +1,11 @@
 # LLVM IR Plus Plus
 ---
 
-Three address code is a popular choice in academia working around static analysis. They are used in the dataflow equations modelled for various analysis.
+Three address code is a popular choice in academia working on data-flow analysis. They are used in dataflow equations which are modelled for various analysis.
 
-Most classic dataflow analysis that are studies at the introductory level are not in SSA form. LLVM being quite popular in academia, ends up witnessing many trying to model those equation just to fit over the SSA form. This approach works well in simple analysis like liveness but gives incomplete results for complex analysis like alias analysis.
+Many classical dataflow analysis that are taught at the introductory level can't be directly applied on SSA form. LLVM being quite popular in academia, ends up witnessing many attempts to model those equation just to run over the SSA form IR. This approach works well in simple analysis like liveness but gives incomplete results for complex analysis like alias analysis.
 
-LLVM IR++ is an out of tree analysis pass which generate abstractions over LLVM IR formed from C++, such that it can be directly used for demostrations of static analysis.
+LLVM IR++ is an out of tree analysis pass which generate abstractions over LLVM IR, such that it can be directly used for toy implementation of many data flow analysis.
 
 
 ## What it does?
