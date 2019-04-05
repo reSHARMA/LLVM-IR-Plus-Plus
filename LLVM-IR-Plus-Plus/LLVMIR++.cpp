@@ -42,11 +42,11 @@ namespace {
 #define DEBUG_TYPE "llvmir++"
 
 /* Statement 	:= LHS = RHS
- * LHS		:= x | *x | x -> f | x.f 
+ * LHS		:= x | *x | x -> f | x.f
  * RHS		:= y | *y | y -> f | y.f | &y
  */
 
-enum SymbolType { simple, pointer, arrow, dot, constant, address};
+enum SymbolType { simple, pointer, arrow, dot, constant, address };
 
 /* Symbol Type 	Variable pattern
  * simple	x
@@ -84,7 +84,7 @@ class Expression {
 	bool handleGlobalVariable(Value*);
 };
 
-void Expression::resetMetadata(){
+void Expression::resetMetadata() {
 	base = nullptr;
 	optional = nullptr;
 	type = nullptr;
@@ -93,10 +93,10 @@ void Expression::resetMetadata(){
 	RHSisAddress = false;
 }
 
-bool Expression::handleGlobalVariable(Value* Exp){
-	if(Exp && isa<GlobalVariable>(Exp)){
+bool Expression::handleGlobalVariable(Value* Exp) {
+	if (Exp && isa<GlobalVariable>(Exp)) {
 		functionArg = Exp;
-		type = Exp -> getType();
+		type = Exp->getType();
 		symbol = simple;
 		return true;
 	}
@@ -113,30 +113,35 @@ class LHSExpression : public Expression {
 	}
 	void getMetaData(Value* Exp) {
 		// update for variable being a global variable
-		if(handleGlobalVariable(Exp)) return;
+		if (handleGlobalVariable(Exp)) return;
 		// handles pointer type
 		if (Exp->getType()->getTypeID() == 15) {
 			RHSisAddress = true;
 		}
-		if(Instruction* PreInst = dyn_cast<Instruction>(Exp)){
-		// check if instruction is of type x = ...
-			if (AllocaInst* PreAllocaInst = dyn_cast<AllocaInst>(PreInst)) {
+		if (Instruction* PreInst = dyn_cast<Instruction>(Exp)) {
+			// check if instruction is of type x = ...
+			if (AllocaInst* PreAllocaInst =
+				dyn_cast<AllocaInst>(PreInst)) {
 				base = PreInst;
 				symbol = simple;
 				type = PreAllocaInst->getType();
 			} else if (LoadInst* PreLoadInst =
 				       dyn_cast<LoadInst>(PreInst)) {
 				// check if instruction is of type *X = ...
-				Value* RHSPreLoadInst = PreLoadInst->getOperand(0);
+				Value* RHSPreLoadInst =
+				    PreLoadInst->getOperand(0);
 				if (AllocaInst* PreAllocaRHSPreLoadInst =
 					dyn_cast<AllocaInst>(RHSPreLoadInst)) {
-					base = cast<Instruction>(RHSPreLoadInst);
+					base =
+					    cast<Instruction>(RHSPreLoadInst);
 					symbol = pointer;
-					type = PreAllocaRHSPreLoadInst->getType();
+					type =
+					    PreAllocaRHSPreLoadInst->getType();
 				}
 			} else if (GetElementPtrInst* PreGEPInst =
 				       dyn_cast<GetElementPtrInst>(PreInst)) {
-				// check if instruction is of type x.f = ... or x -> f =
+				// check if instruction is of type x.f = ... or
+				// x -> f =
 				// ...
 				optional = PreGEPInst;
 				Value* RHSPreGEPInst;
@@ -144,24 +149,31 @@ class LHSExpression : public Expression {
 					RHSPreGEPInst = op;
 					break;
 				}
-				if(Instruction* PreInstRHSPreGEPInst =
-				    dyn_cast<Instruction>(RHSPreGEPInst)){
-				// if instruction is of type x.f = ...
+				if (Instruction* PreInstRHSPreGEPInst =
+					dyn_cast<Instruction>(RHSPreGEPInst)) {
+					// if instruction is of type x.f = ...
 					if (AllocaInst* PreAllocaPreInstRHSPreGEPInst =
-						dyn_cast<AllocaInst>(PreInstRHSPreGEPInst)) {
+						dyn_cast<AllocaInst>(
+						    PreInstRHSPreGEPInst)) {
 						base = PreInstRHSPreGEPInst;
 						symbol = dot;
-						type = PreAllocaPreInstRHSPreGEPInst->getType();
+						type =
+						    PreAllocaPreInstRHSPreGEPInst
+							->getType();
 					} else {
-						// if instruction is of type x -> f = ...
+						// if instruction is of type x
+						// -> f = ...
 						if (LoadInst* PreLoadPreInstRHSPreGEPInst =
 							dyn_cast<LoadInst>(
 							    PreInstRHSPreGEPInst)) {
-							Value* RHSPreLoadPreInstRHSPreGEPInst =
-							    PreLoadPreInstRHSPreGEPInst
-								->getOperand(0);
+							Value*
+							    RHSPreLoadPreInstRHSPreGEPInst =
+								PreLoadPreInstRHSPreGEPInst
+								    ->getOperand(
+									0);
 							if (AllocaInst* AllocaPreRHSPreLoadPreInstRHSPreGEPInst =
-								dyn_cast<AllocaInst>(
+								dyn_cast<
+								    AllocaInst>(
 								    RHSPreLoadPreInstRHSPreGEPInst)) {
 								base =
 								    PreLoadPreInstRHSPreGEPInst;
@@ -175,14 +187,14 @@ class LHSExpression : public Expression {
 				}
 			}
 		}
-		if(!base){
-		// variable is probably a function parameter
+		if (!base) {
+			// variable is probably a function parameter
 			base = dyn_cast<Instruction>(Exp);
 			functionArg = Exp;
-			type = Exp -> getType();
+			type = Exp->getType();
 		}
-		if(!type){
-			Exp -> getType();
+		if (!type) {
+			Exp->getType();
 		}
 	}
 };
@@ -196,58 +208,69 @@ class RHSExpression : public Expression {
 	}
 	void getMetaData(Value* Exp) {
 		// If the variable is a global variable use it
-		if(handleGlobalVariable(Exp)) return;
+		if (handleGlobalVariable(Exp)) return;
 		// Check if the expression is of pointer type
 		if (Exp->getType()->getTypeID() == 15) {
 			RHSisAddress = true;
 			base = dyn_cast<Instruction>(Exp);
-			if(!base){
-		// The variable is not defined in the current function ie can be a parameter
+			if (!base) {
+				// The variable is not defined in the current
+				// function ie can be a parameter
 				functionArg = Exp;
 			}
-			type = Exp -> getType();
+			type = Exp->getType();
 		} else if (Constant* CI = dyn_cast<Constant>(Exp)) {
-		// replace calls with constant since this is a context-insensitive analysis
+			// replace calls with constant since this is a
+			// context-insensitive analysis
 			symbol = constant;
-		} else if(AllocaInst* PreAllocaInst = dyn_cast<AllocaInst>(Exp)){
-		// check if the variable is a plain declared variable ie int x = ...
-				base = dyn_cast<Instruction>(Exp);
-		// TODO: Do I need to check if it is a gloval/function argument if it a alloca is found?
-				if(!base){
-					functionArg = Exp;
-				}
-				symbol = simple;
-				type = PreAllocaInst->getType();
-		} else if(isa<LoadInst>(Exp)){
-		// if the previous instruction is of type load then following cases are possible
-		// x = ...
-		// *x = ...
-		// x.f = ...
-		// x -> f = ...
-			Value* RHSPreLoadInst = cast<LoadInst>(Exp)->getOperand(0);
-			Instruction* PreInst = dyn_cast<Instruction>(RHSPreLoadInst);
+		} else if (AllocaInst* PreAllocaInst =
+			       dyn_cast<AllocaInst>(Exp)) {
+			// check if the variable is a plain declared variable ie
+			// int x = ...
+			base = dyn_cast<Instruction>(Exp);
+			// TODO: Do I need to check if it is a gloval/function
+			// argument if it a alloca is found?
+			if (!base) {
+				functionArg = Exp;
+			}
+			symbol = simple;
+			type = PreAllocaInst->getType();
+		} else if (isa<LoadInst>(Exp)) {
+			// if the previous instruction is of type load then
+			// following cases are possible x = ... *x = ... x.f =
+			// ... x -> f = ...
+			Value* RHSPreLoadInst =
+			    cast<LoadInst>(Exp)->getOperand(0);
+			Instruction* PreInst =
+			    dyn_cast<Instruction>(RHSPreLoadInst);
 			// check if instruction is of type x = ...
-			if (AllocaInst* PreAllocaInst = dyn_cast<AllocaInst>(PreInst)) {
+			if (AllocaInst* PreAllocaInst =
+				dyn_cast<AllocaInst>(PreInst)) {
 				base = PreInst;
 				symbol = simple;
 				type = PreAllocaInst->getType();
 			} else if (LoadInst* PreLoadInst =
 				       dyn_cast<LoadInst>(PreInst)) {
 				// check if instruction is of type *X = ...
-				Value* RHSPreLoadInst = PreLoadInst->getOperand(0);
+				Value* RHSPreLoadInst =
+				    PreLoadInst->getOperand(0);
 				if (AllocaInst* PreAllocaRHSPreLoadInst =
 					dyn_cast<AllocaInst>(RHSPreLoadInst)) {
-					base = cast<Instruction>(RHSPreLoadInst);
+					base =
+					    cast<Instruction>(RHSPreLoadInst);
 					symbol = pointer;
-					type = PreAllocaRHSPreLoadInst->getType();
+					type =
+					    PreAllocaRHSPreLoadInst->getType();
 				}
 			} else if (GetElementPtrInst* PreGEPInst =
 				       dyn_cast<GetElementPtrInst>(PreInst)) {
-				// check if instruction is of type x.f = ... or x -> f =
+				// check if instruction is of type x.f = ... or
+				// x -> f =
 				// ...
 				optional = PreGEPInst;
 				Value* RHSPreGEPInst;
-				for (auto& op : cast<User>(PreGEPInst)->operands()) {
+				for (auto& op :
+				     cast<User>(PreGEPInst)->operands()) {
 					RHSPreGEPInst = op;
 					break;
 				}
@@ -255,18 +278,22 @@ class RHSExpression : public Expression {
 				    dyn_cast<Instruction>(RHSPreGEPInst);
 				// if instruction is of type x.f = ...
 				if (AllocaInst* PreAllocaPreInstRHSPreGEPInst =
-					dyn_cast<AllocaInst>(PreInstRHSPreGEPInst)) {
+					dyn_cast<AllocaInst>(
+					    PreInstRHSPreGEPInst)) {
 					base = PreInstRHSPreGEPInst;
 					symbol = dot;
-					type = PreAllocaPreInstRHSPreGEPInst->getType();
+					type = PreAllocaPreInstRHSPreGEPInst
+						   ->getType();
 				} else {
-					// if instruction is of type x -> f = ...
+					// if instruction is of type x -> f =
+					// ...
 					if (LoadInst* PreLoadPreInstRHSPreGEPInst =
 						dyn_cast<LoadInst>(
 						    PreInstRHSPreGEPInst)) {
-						Value* RHSPreLoadPreInstRHSPreGEPInst =
-						    PreLoadPreInstRHSPreGEPInst
-							->getOperand(0);
+						Value*
+						    RHSPreLoadPreInstRHSPreGEPInst =
+							PreLoadPreInstRHSPreGEPInst
+							    ->getOperand(0);
 						if (AllocaInst* AllocaPreRHSPreLoadPreInstRHSPreGEPInst =
 							dyn_cast<AllocaInst>(
 							    RHSPreLoadPreInstRHSPreGEPInst)) {
@@ -279,22 +306,24 @@ class RHSExpression : public Expression {
 						}
 					}
 				}
-			} 
-		} else if(CallInst* CI = dyn_cast<CallInst>(Exp)){
-		// replace call with constant
+			}
+		} else if (CallInst* CI = dyn_cast<CallInst>(Exp)) {
+			// replace call with constant
 			symbol = constant;
-		} else if(isa<User>(Exp)){
-		// if we come across any other other pattern then we utilize commutative property of some operations
-		// example LHS = RHS then type of LHS and RHS are needed to be same
-		// LHS = RHS1 + RHS2 + ... then type of LHS and RHSi would be same
+		} else if (isa<User>(Exp)) {
+			// if we come across any other other pattern then we
+			// utilize commutative property of some operations
+			// example LHS = RHS then type of LHS and RHS are needed
+			// to be same LHS = RHS1 + RHS2 + ... then type of LHS
+			// and RHSi would be same
 			for (auto& op : cast<User>(Exp)->operands()) {
 				getMetaData(op);
 			}
 		} else {
-		// function parameters used directly
+			// function parameters used directly
 			base = dyn_cast<Instruction>(Exp);
 			functionArg = Exp;
-			type = Exp -> getType();
+			type = Exp->getType();
 		}
 	}
 };
@@ -370,8 +399,8 @@ class LLVMIRPlusPlusPass : public FunctionPass {
 		}
 		if (L->base) {
 			LLVM_DEBUG(dbgs() << L->base->getName() << " ";);
-		} else if(L -> functionArg){
-			LLVM_DEBUG(dbgs() << L -> functionArg-> getName() << " ");
+		} else if (L->functionArg) {
+			LLVM_DEBUG(dbgs() << L->functionArg->getName() << " ");
 		}
 		if (L->symbol == arrow) {
 			LLVM_DEBUG(dbgs() << " -> ";);
