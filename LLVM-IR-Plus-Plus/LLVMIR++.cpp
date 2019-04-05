@@ -73,7 +73,6 @@ class LHSExpression : public Expression {
 			symbol = simple;
 			return;
 		}
-		// check is the instruction of type foo = &bar
 		if (Exp->getType()->getTypeID() == 15) {
 			RHSisAddress = true;
 		}
@@ -300,9 +299,6 @@ class LLVMIRPlusPlusPass : public FunctionPass {
 					}
 					printExp(R);
 					LLVM_DEBUG(dbgs() << "\n";);
-
-					delete UpdateI;
-					UpdateI = nullptr;
 				}
 			}
 		}
