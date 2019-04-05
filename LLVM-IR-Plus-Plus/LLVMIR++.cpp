@@ -41,9 +41,36 @@ namespace {
 
 #define DEBUG_TYPE "llvmir++"
 
+/* Statement 	:= LHS = RHS
+ * LHS		:= x | *x | x -> f | x.f 
+ * RHS		:= y | *y | y -> f | y.f | &y
+ */
+
 enum SymbolType { simple, pointer, arrow, dot, constant, address};
 
+/* Symbol Type 	Variable pattern
+ * simple	x
+ * pointer	*x
+ * arrow	x -> f
+ * dot		x.f
+ * constant	0x3546
+ * address	&x
+ */
+
 // Declare interface for expression
+
+/* for LHS Expression x -> f where x is of type of Class.A*
+ * base 	x
+ * type		Class.A*
+ * symbol	arrow
+ */
+
+/* for RHS Expression &x where x is of type Class.A*
+ * base 	x
+ * type		Class.A*
+ * RHSisAddess	true
+ */
+
 class Expression {
        public:
 	Instruction* base;
@@ -53,33 +80,41 @@ class Expression {
 	Value* functionArg;
 	bool RHSisAddress;
 	virtual void getMetaData(Value*) = 0;
-	void updateMetadata(Instruction*, Value*, Type*, SymbolType, Value*, bool);
+	void resetMetadata();
+	bool handleGlobalVariable(Value*);
 };
 
-void Expression::updateMetadata(Instruction* Inst, Value* Val, Type* Ty, SymbolType SymTy, Value* funcVal, bool isRHSaddress){
-	base = Inst;
-	optional = Val;
-	type = Ty;
-	symbol = SymTy;
-	functionArg = funcVal;
-	RHSisAddress = isRHSaddress;
+void Expression::resetMetadata(){
+	base = nullptr;
+	optional = nullptr;
+	type = nullptr;
+	symbol = simple;
+	functionArg = nullptr;
+	RHSisAddress = false;
+}
+
+bool Expression::handleGlobalVariable(Value* Exp){
+	if(Exp && isa<GlobalVariable>(Exp)){
+		functionArg = Exp;
+		type = Exp -> getType();
+		symbol = simple;
+		return true;
+	}
+	return false;
 }
 
 // Derive a class for LHS expression
 class LHSExpression : public Expression {
        public:
 	LHSExpression(Value* Exp) {
-		updateMetadata(nullptr, nullptr, nullptr, simple, nullptr, false);
+		resetMetadata();
 		LLVM_DEBUG(dbgs() << "	Initialize LHS with " << *Exp << "\n";);
 		getMetaData(Exp);
 	}
 	void getMetaData(Value* Exp) {
-		if(Exp && isa<GlobalVariable>(Exp)){
-			functionArg = Exp;
-			type = Exp -> getType();
-			symbol = simple;
-			return;
-		}
+		// update for variable being a global variable
+		if(handleGlobalVariable(Exp)) return;
+		// handles pointer type
 		if (Exp->getType()->getTypeID() == 15) {
 			RHSisAddress = true;
 		}
@@ -141,6 +176,7 @@ class LHSExpression : public Expression {
 			}
 		}
 		if(!base){
+		// variable is probably a function parameter
 			base = dyn_cast<Instruction>(Exp);
 			functionArg = Exp;
 			type = Exp -> getType();
@@ -154,37 +190,40 @@ class LHSExpression : public Expression {
 class RHSExpression : public Expression {
        public:
 	RHSExpression(Value* Exp) {
-		base = nullptr;
-		optional = nullptr;
-		symbol = simple;
-		RHSisAddress = false;
+		resetMetadata();
 		LLVM_DEBUG(dbgs() << "	Initialize RHS with " << *Exp << "\n";);
 		getMetaData(Exp);
 	}
 	void getMetaData(Value* Exp) {
-		if(Exp && isa<GlobalVariable>(Exp)){
-			functionArg = Exp;
-			type = Exp -> getType();
-			symbol = simple;
-			return;
-		}
+		// If the variable is a global variable use it
+		if(handleGlobalVariable(Exp)) return;
+		// Check if the expression is of pointer type
 		if (Exp->getType()->getTypeID() == 15) {
 			RHSisAddress = true;
 			base = dyn_cast<Instruction>(Exp);
 			if(!base){
+		// The variable is not defined in the current function ie can be a parameter
 				functionArg = Exp;
 			}
 			type = Exp -> getType();
 		} else if (Constant* CI = dyn_cast<Constant>(Exp)) {
+		// replace calls with constant since this is a context-insensitive analysis
 			symbol = constant;
 		} else if(AllocaInst* PreAllocaInst = dyn_cast<AllocaInst>(Exp)){
+		// check if the variable is a plain declared variable ie int x = ...
 				base = dyn_cast<Instruction>(Exp);
+		// TODO: Do I need to check if it is a gloval/function argument if it a alloca is found?
 				if(!base){
 					functionArg = Exp;
 				}
 				symbol = simple;
 				type = PreAllocaInst->getType();
 		} else if(isa<LoadInst>(Exp)){
+		// if the previous instruction is of type load then following cases are possible
+		// x = ...
+		// *x = ...
+		// x.f = ...
+		// x -> f = ...
 			Value* RHSPreLoadInst = cast<LoadInst>(Exp)->getOperand(0);
 			Instruction* PreInst = dyn_cast<Instruction>(RHSPreLoadInst);
 			// check if instruction is of type x = ...
@@ -242,12 +281,17 @@ class RHSExpression : public Expression {
 				}
 			} 
 		} else if(CallInst* CI = dyn_cast<CallInst>(Exp)){
+		// replace call with constant
 			symbol = constant;
 		} else if(isa<User>(Exp)){
+		// if we come across any other other pattern then we utilize commutative property of some operations
+		// example LHS = RHS then type of LHS and RHS are needed to be same
+		// LHS = RHS1 + RHS2 + ... then type of LHS and RHSi would be same
 			for (auto& op : cast<User>(Exp)->operands()) {
 				getMetaData(op);
 			}
 		} else {
+		// function parameters used directly
 			base = dyn_cast<Instruction>(Exp);
 			functionArg = Exp;
 			type = Exp -> getType();
@@ -276,6 +320,7 @@ using InstMetaMap = std::map<StoreInst*, UpdateInst*>;
 
 class LLVMIRPlusPlusPass : public FunctionPass {
        private:
+	// store data in map that can be used in other analysis/transform
 	InstMetaMap IRPlusPlus;
 
        public:
@@ -312,6 +357,7 @@ class LLVMIRPlusPlusPass : public FunctionPass {
 		return false;
 	}
 	void printExp(Expression* L) {
+		// prints the expression in formal LHS = RHS
 		if (L->symbol == constant) {
 			LLVM_DEBUG(dbgs() << "constant";);
 			return;
