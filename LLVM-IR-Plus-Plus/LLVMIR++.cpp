@@ -53,16 +53,23 @@ class Expression {
 	Value* functionArg;
 	bool RHSisAddress;
 	virtual void getMetaData(Value*) = 0;
+	void updateMetadata(Instruction*, Value*, Type*, SymbolType, Value*, bool);
 };
+
+void Expression::updateMetadata(Instruction* Inst, Value* Val, Type* Ty, SymbolType SymTy, Value* funcVal, bool isRHSaddress){
+	base = Inst;
+	optional = Val;
+	type = Ty;
+	symbol = SymTy;
+	functionArg = funcVal;
+	RHSisAddress = isRHSaddress;
+}
 
 // Derive a class for LHS expression
 class LHSExpression : public Expression {
        public:
 	LHSExpression(Value* Exp) {
-		base = nullptr;
-		optional = nullptr;
-		symbol = simple;
-		RHSisAddress = false;
+		updateMetadata(nullptr, nullptr, nullptr, simple, nullptr, false);
 		LLVM_DEBUG(dbgs() << "	Initialize LHS with " << *Exp << "\n";);
 		getMetaData(Exp);
 	}
