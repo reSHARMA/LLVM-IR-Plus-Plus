@@ -209,8 +209,15 @@ class RHSExpression : public Expression {
 	void getMetaData(Value* Exp) {
 		// If the variable is a global variable use it
 		if (handleGlobalVariable(Exp)) return;
+		if (Exp && isa<BitCastInst>(Exp)){
+			BitCastInst* bitcastInst = dyn_cast<BitCastInst>(Exp);
+			Exp = bitcastInst -> getOperand(0);
+			LLVM_DEBUG(dbgs() << "	BitCast Instruction: " << *bitcastInst << "\n";);
+			LLVM_DEBUG(dbgs() << "	New RHS: " << *Exp << "\n";);
+		}
 		// Check if the expression is of pointer type
 		if (Exp->getType()->getTypeID() == 15) {
+			LLVM_DEBUG(dbgs() << "	RHS is of pointer type \n";);
 			RHSisAddress = true;
 			base = dyn_cast<Instruction>(Exp);
 			if (!base) {
@@ -219,16 +226,19 @@ class RHSExpression : public Expression {
 				functionArg = Exp;
 			}
 			type = Exp->getType();
-		} else if (Constant* CI = dyn_cast<Constant>(Exp)) {
+		} 
+		if (Constant* CI = dyn_cast<Constant>(Exp)) {
+			LLVM_DEBUG(dbgs() << "Replaced constant " << *CI << "\n";);
 			// replace calls with constant since this is a
 			// context-insensitive analysis
 			symbol = constant;
 		} else if (AllocaInst* PreAllocaInst =
 			       dyn_cast<AllocaInst>(Exp)) {
+			LLVM_DEBUG(dbgs() << "Found alloca: " << *PreAllocaInst << "\n";);
 			// check if the variable is a plain declared variable ie
 			// int x = ...
 			base = dyn_cast<Instruction>(Exp);
-			// TODO: Do I need to check if it is a gloval/function
+			// TODO: Do I need to check if it is a global/function
 			// argument if it a alloca is found?
 			if (!base) {
 				functionArg = Exp;
@@ -236,6 +246,7 @@ class RHSExpression : public Expression {
 			symbol = simple;
 			type = PreAllocaInst->getType();
 		} else if (isa<LoadInst>(Exp)) {
+			LLVM_DEBUG(dbgs() << "Found load : " << *Exp << "\n";);
 			// if the previous instruction is of type load then
 			// following cases are possible x = ... *x = ... x.f =
 			// ... x -> f = ...
@@ -308,6 +319,7 @@ class RHSExpression : public Expression {
 				}
 			}
 		} else if (CallInst* CI = dyn_cast<CallInst>(Exp)) {
+			LLVM_DEBUG(dbgs() << "Replace call " << *CI << "with constant" << "\n";);
 			// replace call with constant
 			symbol = constant;
 		} else if (isa<User>(Exp)) {
@@ -332,8 +344,7 @@ class UpdateInst {
        public:
 	Expression *LHS, *RHS;
 	UpdateInst(StoreInst* I) {
-		LLVM_DEBUG(dbgs() << " 	UpdateI object initialized with " << *I
-				  << "\n";);
+		LLVM_DEBUG(dbgs() << " 	UpdateI object initialized with " << *I << "\n";);
 		// Get the LHS value of the store instruction
 		Value* StoreInstLHS = I->getPointerOperand();
 		// Generate LHS meta data
@@ -400,7 +411,7 @@ class LLVMIRPlusPlusPass : public FunctionPass {
 		if (L->base) {
 			LLVM_DEBUG(dbgs() << L->base->getName() << " ";);
 		} else if (L->functionArg) {
-			LLVM_DEBUG(dbgs() << L->functionArg->getName() << " ");
+			LLVM_DEBUG(dbgs() << L->functionArg->getName() << " ";);
 		}
 		if (L->symbol == arrow) {
 			LLVM_DEBUG(dbgs() << " -> ";);
