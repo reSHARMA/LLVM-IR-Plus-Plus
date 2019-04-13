@@ -42,6 +42,35 @@ using namespace llvm;
 
 enum SymbolType { simple, pointer, arrow, dot, constant, address};
 
+/* Statement 	:= LHS = RHS
+ * LHS		:= x | *x | x -> f | x.f
+ * RHS		:= y | *y | y -> f | y.f | &y
+ */
+
+/* Symbol Type 	Variable pattern
+ * simple	x
+ * pointer	*x
+ * arrow	x -> f
+ * dot		x.f
+ * constant	0x3546
+ * address	&x
+ */
+
+// Declare interface for expression
+
+/* for LHS Expression x -> f where x is of type of Class.A*
+ * base 	x
+ * type		Class.A*
+ * symbol	arrow
+ */
+
+/* for RHS Expression &x where x is of type Class.A*
+ * base 	x
+ * type		Class.A*
+ * RHSisAddess	true
+ */
+
+
 class Expression {
        public:
 	Instruction* base;
