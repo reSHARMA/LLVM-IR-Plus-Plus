@@ -1,6 +1,7 @@
 add_library(LLVMIRPlusPlusPass MODULE
     # List your source files here.
     LLVMIR++.cpp
+    include/LLVMIR++.h
 )
 
 # Use C++11 to compile your pass (i.e., supply -std=c++11).
