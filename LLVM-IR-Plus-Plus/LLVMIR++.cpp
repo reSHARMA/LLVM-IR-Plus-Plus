@@ -337,9 +337,10 @@ bool LLVMIRPlusPlusPass::runOnFunction(Function& F) {
 	for (BasicBlock& BB : F) {
 		// Iterate over Instructions
 		for (Instruction& I : BB) {
+			LLVM_DEBUG(dbgs() << ">>>> " << I << "\n";);
 			// For every store instruction
 			if (StoreInst* StoreI = dyn_cast<StoreInst>(&I)) {
-				LLVM_DEBUG(dbgs() << "	" << I << "\n";);
+				LLVM_DEBUG(dbgs() << ">>>>>>>>	" << I << "\n";);
 				// Generate meta-data for store
 				// instruction
 				UpdateInst* UpdateI = new UpdateInst(StoreI);
