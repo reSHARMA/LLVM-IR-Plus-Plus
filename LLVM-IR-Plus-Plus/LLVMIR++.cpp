@@ -348,7 +348,7 @@ bool LLVMIRPlusPlusPass::runOnFunction(Function& F) {
 				printExp(L);
 				LLVM_DEBUG(dbgs() << " = ";);
 				Expression* R = UpdateI->RHS;
-				if (R->RHSisAddress & L->RHSisAddress) {
+				if (R->RHSisAddress && L->RHSisAddress && (R -> type != L -> type)) {
 					LLVM_DEBUG(dbgs() << " & ";);
 					R->symbol = address;
 				}
