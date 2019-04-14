@@ -1,6 +1,10 @@
 # LLVM IR Plus Plus
 ---
+[![Build Status](https://travis-ci.org/reSHARMA/LLVM-IR-Plus-Plus.svg?branch=master)](https://travis-ci.org/reSHARMA/LLVM-IR-Plus-Plus) 
+[![GRC Lab IIT Bombay](https://img.shields.io/badge/GRC%20Lab-IIT%20Bombay-blue.svg)](http://www.cse.iitb.ac.in/grc/) 
 
+
+___
 Three address code is a popular choice in academia working on data-flow analysis. They are used in dataflow equations which are modelled for various analysis.
 
 Many classical dataflow analysis that are taught at the introductory level can't be directly applied on SSA form. LLVM being quite popular in academia, ends up witnessing many attempts to model those equation just to run over the SSA form IR. This approach works well in simple analysis like liveness but gives incomplete results for complex analysis like alias analysis.
