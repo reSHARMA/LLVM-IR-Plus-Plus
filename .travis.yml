@@ -1,20 +1,17 @@
-os:
-  - linux
-
-language:
-  - cpp
-
+addons: 
+  apt: 
+    packages: 
+      - llvm-8
+      - clang-8
+      - cmake
+    sources: 
+      - 
+        key_url: "https://apt.llvm.org/llvm-snapshot.gpg.key"
+        sourceline: "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-8 main"
 dist: xenial
-
-addons:
-  apt:
-    sources:
-    - sourceline: "deb http://apt.llvm.org/xenial/ llvm-toolchain-xenial-8 main"
-    - key_url: 'https://apt.llvm.org/llvm-snapshot.gpg.key'
-    packages:
-    - llvm-8
-    - clang-8
-    - cmake      
-
-script:
-  - bash test
+language: 
+  - cpp
+os: 
+  - linux
+script: 
+  - "bash test"

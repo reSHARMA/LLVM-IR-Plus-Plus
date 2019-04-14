@@ -5,9 +5,8 @@ set -x
 mkdir -p _build
 pushd _build
 cmake ..
-make
+make -j4
 popd
-~/llvm-toolchain-8_8~svn353031/build-llvm/bin/clang++ -g -S -emit-llvm -o test.bc test.cpp
-#opt-8 -instnamer -load _build/*/*LLVMIRPlusPlus* -llvmir++ test.bc > /dev/null
-~/llvm-toolchain-8_8~svn353031/build-llvm/bin/opt $1 -instnamer -load _build/*/*LLVMIRPlusPlus* -llvmir++ test.bc > /dev/null
-rm -rf _build test.bc
+$CC -g -S -emit-llvm -o test.bc test.cpp
+$OPT $1 -instnamer -p -load _build/*/*LLVMIRPlusPlus* -llvmir++  -debug-only=llvmir++ test.bc > /dev/null
+rm -rf _build # test.bc
