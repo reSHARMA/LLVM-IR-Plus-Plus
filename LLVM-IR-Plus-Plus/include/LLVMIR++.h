@@ -19,6 +19,7 @@
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/Module.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instruction.h"
@@ -112,16 +113,16 @@ class UpdateInst {
 
 using InstMetaMap = std::map<StoreInst*, UpdateInst*>;
 
-class LLVMIRPlusPlusPass : public FunctionPass {
+class LLVMIRPlusPlusPass : public ModulePass {
        private:
 	InstMetaMap IRPlusPlus;
 
        public:
 	static char ID;
 	LLVMIRPlusPlusPass();
-	bool runOnFunction(Function&) override;
+	bool runOnModule(Module&) override;
 	void printExp(Expression*);
 	InstMetaMap getIRPlusPlus();
+	void generateMetaData(StoreInst*);
 };
-
 #endif 

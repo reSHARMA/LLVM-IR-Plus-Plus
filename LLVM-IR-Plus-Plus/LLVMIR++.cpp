@@ -18,6 +18,7 @@
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/Module.h"
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
@@ -40,6 +41,9 @@ using namespace llvm;
 
 #define DEBUG_TYPE "llvmir++"
 
+/* resetMetadata
+ * Reset all Expression class member to their initial value
+ */
 void Expression::resetMetadata() {
 	base = nullptr;
 	optional = nullptr;
@@ -49,6 +53,16 @@ void Expression::resetMetadata() {
 	RHSisAddress = false;
 }
 
+/* handleGlobalVariable
+ * It is possible that the defination of global variable is 
+ * not present in the current file so instead of assigning it
+ * to the base we assign it to functionArg.
+ *
+ * handleGlobaleVariable takes Value* as an input
+ * It returns TRUE if the value was a global expression
+ * and will update the type, functionArg and symbol.
+ * else it returns false
+ */
 bool Expression::handleGlobalVariable(Value* Exp) {
 	if (Exp && isa<GlobalVariable>(Exp)) {
 		functionArg = Exp;
@@ -59,6 +73,7 @@ bool Expression::handleGlobalVariable(Value* Exp) {
 	return false;
 }
 
+/* Copy constructor */
 Expression::Expression(const Expression* Exp) {
 	base = Exp->base;
 	optional = Exp->optional;
@@ -68,10 +83,14 @@ Expression::Expression(const Expression* Exp) {
 	RHSisAddress = Exp->RHSisAddress;
 }
 
+/* Default constructor */
 Expression::Expression(){
 	resetMetadata();
 }
 
+/* ExpEqual
+ * Matches all the data member of two Expression class object and returns a boolean value
+ */
 bool Expression::ExpEqual::operator()(Expression const * exp1,Expression const * exp2) const {
 	if(exp1 -> base != exp2 -> base){
 		return false;
@@ -94,16 +113,25 @@ bool Expression::ExpEqual::operator()(Expression const * exp1,Expression const *
 	return true;
 }
 
+/* Constructor for LHSExpression 
+ * For an input Value* Exp it generates a LHSExpression object for it
+ * It resets meta data and uses getMetaData to abstract meta data
+ */
 LHSExpression::LHSExpression(Value* Exp) {
 	resetMetadata();
 	LLVM_DEBUG(dbgs() << "	Initialize LHS with " << *Exp << "\n";);
 	getMetaData(Exp);
 }
 
+/* getMetaData
+ * It extracts metadata from Value* Exp using some fixed pattern in the IR
+ */
 void LHSExpression::getMetaData(Value* Exp) {
 	// update for variable being a global variable
 	if (handleGlobalVariable(Exp)) return;
-	// handles pointer type
+	// Handle bitcast
+	// For a = (new type) b, Exp is a
+	// change Exp to b and move on
 	if (Exp && isa<BitCastInst>(Exp)) {
 		BitCastInst* bitcastInst = dyn_cast<BitCastInst>(Exp);
 		Exp = bitcastInst->getOperand(0);
@@ -111,6 +139,7 @@ void LHSExpression::getMetaData(Value* Exp) {
 				  << "\n";);
 		LLVM_DEBUG(dbgs() << "	New RHS: " << *Exp << "\n";);
 	}
+	// handles pointer type
 	if (Exp->getType()->getTypeID() == 15) {
 		RHSisAddress = true;
 	}
@@ -133,8 +162,7 @@ void LHSExpression::getMetaData(Value* Exp) {
 		} else if (GetElementPtrInst* PreGEPInst =
 			       dyn_cast<GetElementPtrInst>(PreInst)) {
 			// check if instruction is of type x.f = ... or
-			// x -> f =
-			// ...
+			// x -> f = ...
 			optional = PreGEPInst;
 			Value* RHSPreGEPInst;
 			for (auto& op : PreGEPInst->operands()) {
@@ -178,6 +206,8 @@ void LHSExpression::getMetaData(Value* Exp) {
 	}
 	if (!base) {
 		// variable is probably a function parameter
+		// or a global variable
+		// Update functionArg
 		base = dyn_cast<Instruction>(Exp);
 		functionArg = Exp;
 		type = Exp->getType();
@@ -187,11 +217,19 @@ void LHSExpression::getMetaData(Value* Exp) {
 	}
 }
 
+/* Constructor for RHSExpression 
+ * For an input Value* Exp it generates a RHSExpression object for it
+ * It resets meta data and uses getMetaData to abstract meta data
+ */
 RHSExpression::RHSExpression(Value* Exp) {
 	resetMetadata();
 	LLVM_DEBUG(dbgs() << "	Initialize RHS with " << *Exp << "\n";);
 	getMetaData(Exp);
 }
+
+/* getMetaData
+ * It extracts metadata from Value* Exp using some fixed pattern in the IR
+ */
 void RHSExpression::getMetaData(Value* Exp) {
 	// If the variable is a global variable use it
 	if (handleGlobalVariable(Exp)) return;
@@ -317,6 +355,10 @@ void RHSExpression::getMetaData(Value* Exp) {
 	}
 }
 
+/* UpdateInst takes a Store Instruction as an input
+ * It abstract meta data of format LHS = RHS
+ * which is object of class UpdateInst
+ */
 UpdateInst::UpdateInst(StoreInst* I) {
 	LLVM_DEBUG(dbgs() << " 	UpdateI object initialized with " << *I
 			  << "\n";);
@@ -330,38 +372,51 @@ UpdateInst::UpdateInst(StoreInst* I) {
 	RHS = new RHSExpression(StoreInstRHS);
 }
 
-LLVMIRPlusPlusPass::LLVMIRPlusPlusPass() : FunctionPass(ID) {}
+LLVMIRPlusPlusPass::LLVMIRPlusPlusPass() : ModulePass(ID) {}
 
-bool LLVMIRPlusPlusPass::runOnFunction(Function& F) {
-	// Iterate over basicblocks
-	for (BasicBlock& BB : F) {
-		// Iterate over Instructions
-		for (Instruction& I : BB) {
-			LLVM_DEBUG(dbgs() << ">>>> " << I << "\n";);
-			// For every store instruction
-			if (StoreInst* StoreI = dyn_cast<StoreInst>(&I)) {
-				LLVM_DEBUG(dbgs() << ">>>>>>>>	" << I << "\n";);
-				// Generate meta-data for store
-				// instruction
-				UpdateInst* UpdateI = new UpdateInst(StoreI);
-				IRPlusPlus[StoreI] = UpdateI;
-				Expression* L = UpdateI->LHS;
-				printExp(L);
-				LLVM_DEBUG(dbgs() << " = ";);
-				Expression* R = UpdateI->RHS;
-				if (R->RHSisAddress && L->RHSisAddress && (R -> type != L -> type)) {
-					LLVM_DEBUG(dbgs() << " & ";);
-					R->symbol = address;
+bool LLVMIRPlusPlusPass::runOnModule(Module& M) {
+	for(Function& F : M){
+		// Iterate over basicblocks
+		for (BasicBlock& BB : F) {
+			// Iterate over Instructions
+			for (Instruction& I : BB) {
+				LLVM_DEBUG(dbgs() << ">>>> " << I << "\n";);
+				// For every store instruction
+				if (StoreInst* StoreI = dyn_cast<StoreInst>(&I)) {
+					LLVM_DEBUG(dbgs() << ">>>>>>>>	" << I << "\n";);
+					// Generate meta-data for store
+					// instruction
+					generateMetaData(StoreI);				
 				}
-				printExp(R);
-				LLVM_DEBUG(dbgs() << "\n";);
 			}
 		}
 	}
 	return false;
 }
+
+/* generateMetaData
+ * It force mimic the generation of metadata for any store instruction
+ * It init an object of UpdateInst which in turn generate metadata for
+ * LHS and RHS
+ */
+void LLVMIRPlusPlusPass::generateMetaData(StoreInst* StoreI){
+	UpdateInst* UpdateI = new UpdateInst(StoreI);
+	IRPlusPlus[StoreI] = UpdateI;
+	Expression* L = UpdateI->LHS;
+	printExp(L);
+	LLVM_DEBUG(dbgs() << " = ";);
+	Expression* R = UpdateI->RHS;
+	if (R->RHSisAddress && L->RHSisAddress && (R -> type != L -> type)) {
+		LLVM_DEBUG(dbgs() << " & ";);
+		R->symbol = address;
+	}
+	printExp(R);
+	LLVM_DEBUG(dbgs() << "\n";);
+}
+
+
 void LLVMIRPlusPlusPass::printExp(Expression* L) {
-	// prints the expression in formal LHS = RHS
+	// prints the expression
 	if (L->symbol == constant) {
 		LLVM_DEBUG(dbgs() << "constant";);
 		return;
@@ -394,16 +449,8 @@ InstMetaMap LLVMIRPlusPlusPass::getIRPlusPlus() { return IRPlusPlus; }
 
 char LLVMIRPlusPlusPass::ID = 0;
 static RegisterPass<LLVMIRPlusPlusPass> X(
-    "llvmir++",					     // the option name -> -mba
+    "llvmir++",					     // the option name
     "LLVM IR abstracted to C++ three address code",  // option description
     true,  // true as we don't modify the CFG
     true   // true if we're writing an analysis
 );
-/*
-static void registerLLVMIRPlusPlusPass(const PassManagerBuilder &,
-			     legacy::PassManagerBase &PM) {
-	PM.add(new LLVMIRPlusPlusPass());
-}
-static RegisterStandardPasses RegisterMyPass(
-    PassManagerBuilder::EP_EarlyAsPossible, registerLLVMIRPlusPlusPass);
-*/
