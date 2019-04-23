@@ -18,7 +18,6 @@
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Function.h"
-#include "llvm/IR/Module.h"
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
@@ -26,6 +25,7 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/LegacyPassManager.h"
+#include "llvm/IR/Module.h"
 #include "llvm/IR/Use.h"
 #include "llvm/IR/User.h"
 #include "llvm/IR/Value.h"
@@ -54,7 +54,7 @@ void Expression::resetMetadata() {
 }
 
 /* handleGlobalVariable
- * It is possible that the defination of global variable is 
+ * It is possible that the defination of global variable is
  * not present in the current file so instead of assigning it
  * to the base we assign it to functionArg.
  *
@@ -84,36 +84,36 @@ Expression::Expression(const Expression* Exp) {
 }
 
 /* Default constructor */
-Expression::Expression(){
-	resetMetadata();
-}
+Expression::Expression() { resetMetadata(); }
 
 /* ExpEqual
- * Matches all the data member of two Expression class object and returns a boolean value
+ * Matches all the data member of two Expression class object and returns a
+ * boolean value
  */
-bool Expression::ExpEqual::operator()(Expression const * exp1,Expression const * exp2) const {
-	if(exp1 -> base != exp2 -> base){
+bool Expression::ExpEqual::operator()(Expression const* exp1,
+				      Expression const* exp2) const {
+	if (exp1->base != exp2->base) {
 		return false;
 	}
-	if(exp1 -> type != exp2 -> type){
+	if (exp1->type != exp2->type) {
 		return false;
 	}
-	if(exp1 -> symbol != exp2 -> symbol){
+	if (exp1->symbol != exp2->symbol) {
 		return false;
 	}
-	if(exp1 -> functionArg != exp2 -> functionArg){
+	if (exp1->functionArg != exp2->functionArg) {
 		return false;
 	}
-	if(exp1 -> RHSisAddress != exp2 -> RHSisAddress){
+	if (exp1->RHSisAddress != exp2->RHSisAddress) {
 		return false;
 	}
-	if(exp1 -> optional != exp2 -> optional){
+	if (exp1->optional != exp2->optional) {
 		return false;
 	}
 	return true;
 }
 
-/* Constructor for LHSExpression 
+/* Constructor for LHSExpression
  * For an input Value* Exp it generates a LHSExpression object for it
  * It resets meta data and uses getMetaData to abstract meta data
  */
@@ -217,7 +217,7 @@ void LHSExpression::getMetaData(Value* Exp) {
 	}
 }
 
-/* Constructor for RHSExpression 
+/* Constructor for RHSExpression
  * For an input Value* Exp it generates a RHSExpression object for it
  * It resets meta data and uses getMetaData to abstract meta data
  */
@@ -375,18 +375,20 @@ UpdateInst::UpdateInst(StoreInst* I) {
 LLVMIRPlusPlusPass::LLVMIRPlusPlusPass() : ModulePass(ID) {}
 
 bool LLVMIRPlusPlusPass::runOnModule(Module& M) {
-	for(Function& F : M){
+	for (Function& F : M) {
 		// Iterate over basicblocks
 		for (BasicBlock& BB : F) {
 			// Iterate over Instructions
 			for (Instruction& I : BB) {
 				LLVM_DEBUG(dbgs() << ">>>> " << I << "\n";);
 				// For every store instruction
-				if (StoreInst* StoreI = dyn_cast<StoreInst>(&I)) {
-					LLVM_DEBUG(dbgs() << ">>>>>>>>	" << I << "\n";);
+				if (StoreInst* StoreI =
+					dyn_cast<StoreInst>(&I)) {
+					LLVM_DEBUG(dbgs() << ">>>>>>>>	" << I
+							  << "\n";);
 					// Generate meta-data for store
 					// instruction
-					generateMetaData(StoreI);				
+					generateMetaData(StoreI);
 				}
 			}
 		}
@@ -399,21 +401,20 @@ bool LLVMIRPlusPlusPass::runOnModule(Module& M) {
  * It init an object of UpdateInst which in turn generate metadata for
  * LHS and RHS
  */
-void LLVMIRPlusPlusPass::generateMetaData(StoreInst* StoreI){
+void LLVMIRPlusPlusPass::generateMetaData(StoreInst* StoreI) {
 	UpdateInst* UpdateI = new UpdateInst(StoreI);
 	IRPlusPlus[StoreI] = UpdateI;
 	Expression* L = UpdateI->LHS;
 	printExp(L);
 	LLVM_DEBUG(dbgs() << " = ";);
 	Expression* R = UpdateI->RHS;
-	if (R->RHSisAddress && L->RHSisAddress && (R -> type != L -> type)) {
+	if (R->RHSisAddress && L->RHSisAddress && (R->type != L->type)) {
 		LLVM_DEBUG(dbgs() << " & ";);
 		R->symbol = address;
 	}
 	printExp(R);
 	LLVM_DEBUG(dbgs() << "\n";);
 }
-
 
 void LLVMIRPlusPlusPass::printExp(Expression* L) {
 	// prints the expression
@@ -445,7 +446,6 @@ void LLVMIRPlusPlusPass::printExp(Expression* L) {
 }
 
 InstMetaMap LLVMIRPlusPlusPass::getIRPlusPlus() { return IRPlusPlus; }
-
 
 char LLVMIRPlusPlusPass::ID = 0;
 static RegisterPass<LLVMIRPlusPlusPass> X(
