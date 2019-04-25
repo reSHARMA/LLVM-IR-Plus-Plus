@@ -6,6 +6,7 @@
 #include <iterator>
 #include <memory>
 #include <utility>
+#include <unordered_set>
 #include <vector>
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
@@ -131,12 +132,108 @@ class UpdateInst {
 
 /* Maps store instruction to the meta data */
 using InstMetaMap = std::map<StoreInst*, UpdateInst*>;
+class Node;
+using NodeList = std::vector<Node*>;
+InstMetaMap IRPlusPlus;
+
+
+class Node {
+	private:
+	Instruction* Inst;
+	Expression* LHS;
+	Expression* RHS;
+	bool isAbstracted;
+	int loc;
+	NodeList Succ, Pred;
+	public:
+	void resetNode(){
+		Inst = nullptr;
+		LHS = nullptr;
+		RHS = nullptr;
+		isAbstracted = false;
+		loc = -1;
+	}
+	NodeList getSucc(){
+		NodeList ans;
+		NodeList WorkList;
+		WorkList = getRealSucc();
+		while(!WorkList.empty()){
+			Node* temp = WorkList.back();
+			WorkList.pop_back();
+			if(temp -> isAbstracted == true){
+				ans.push_back(temp);
+			} else {
+				std::vector<Node*> s = temp -> getRealSucc();
+				for(Node* n : s){
+					WorkList.push_back(n);
+				}
+			}
+		}
+		return ans;
+	}
+	NodeList getRealSucc(){
+		return Succ;
+	}
+	NodeList getRealPred(){
+		return Pred;
+	}
+	Node(){
+		resetNode();
+	}
+	Node(Instruction*);
+};
+
+class CFG {
+	private:
+	Node* StartNode;
+	Node* EndNode;
+	public:
+	CFG(){
+		StartNode = nullptr;
+		EndNode = nullptr;
+	}
+	void init(Module* M){
+		if(StartNode){
+			// The cgf is already inited
+			return;
+		}
+		for(Function& F : *M){
+			for(BasicBlock& BB : F){
+				for(Instruction& I : BB){
+					Node* tempNode = new Node(&I);
+					if(!StartNode){
+						StartNode = tempNode;
+					}
+					NodeList EndInstList;
+					NodeList WorkList;
+					WorkList.push_back(StartNode);
+					while(! WorkList.empty()){
+						Node* temp = WorkList.back();
+						WorkList.pop_back();
+						if((temp -> getRealSucc()).size() == 0){
+							EndInstList.push_back(temp);
+						}
+						for(Node* s : temp -> getRealSucc()){
+							WorkList.push_back(s);
+						}
+					}
+					Node* endNode;
+					for(Node* end : WorkList){
+						(end -> getRealSucc()).push_back(endNode);
+						(endNode -> getRealPred()).push_back(end);
+					}
+					break;
+				}
+			}
+		}
+	}
+};
+
+using CFGMap = std::map<Module*, CFG*>;
 
 class LLVMIRPlusPlusPass : public ModulePass {
-       private:
-	InstMetaMap IRPlusPlus;
-
        public:
+	CFG* grcfg;
 	static char ID;
 	LLVMIRPlusPlusPass();
 	bool runOnModule(Module&) override;
@@ -144,7 +241,12 @@ class LLVMIRPlusPlusPass : public ModulePass {
 	void printExp(Expression*);
 	// returns generated metadata
 	InstMetaMap getIRPlusPlus();
+	CFG* getCFG(){
+		return grcfg;
+	}
 	// force generate metadata for one store instruction
 	void generateMetaData(StoreInst*);
+	// returns CFG
 };
+
 #endif

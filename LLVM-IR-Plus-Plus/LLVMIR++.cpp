@@ -393,6 +393,10 @@ bool LLVMIRPlusPlusPass::runOnModule(Module& M) {
 			}
 		}
 	}
+	Module *Mod = &M;
+	CFG* cfg = new CFG();
+	cfg -> init(Mod);
+	grcfg = &*cfg;
 	return false;
 }
 
@@ -442,6 +446,57 @@ void LLVMIRPlusPlusPass::printExp(Expression* L) {
 	}
 	if (L->optional) {
 		LLVM_DEBUG(dbgs() << L->optional->getName(););
+	}
+}
+
+Node::Node(Instruction *I){
+	LLVM_DEBUG(dbgs() << " ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ \n";);
+	resetNode();
+	if(I){
+		LLVM_DEBUG(dbgs() << "Working on instruction " << *I << " \n";);
+		BasicBlock* parent = I -> getParent();
+		LLVM_DEBUG(dbgs() << "BasicBlock is " << *parent << " \n";);
+		Instruction* BBStartInst = &(parent -> front());
+		LLVM_DEBUG(dbgs() << "BasicBlock starts with " << *BBStartInst << " \n";);
+		Instruction* BBEndInst = &(parent -> back());
+		LLVM_DEBUG(dbgs() << "BasicBlock ends with " << *BBEndInst << " \n";);
+		Inst = I;
+		if(isa<StoreInst>(I)){
+			isAbstracted = true;
+		}
+		if(isAbstracted){
+			StoreInst* storeInst = dyn_cast<StoreInst>(I);
+			if(storeInst){
+				LHS = IRPlusPlus[storeInst] -> LHS;
+				RHS = IRPlusPlus[storeInst] -> RHS;
+			}
+		}
+		if(I == BBEndInst){
+			LLVM_DEBUG(dbgs() << "Instruction is the end instruction \n";);
+			for(BasicBlock *S : successors(parent)){
+				Node* tempNode = new Node(&(S -> front()));
+				(tempNode -> Pred).push_back(this);
+				Succ.push_back(tempNode);
+			}
+		} else if(I == BBStartInst){
+			LLVM_DEBUG(dbgs() << "Instruction is the start instruction \n";);
+			Instruction* SuccInstruction = nullptr;
+			SuccInstruction = I -> getNextNonDebugInstruction();
+			if(SuccInstruction && SuccInstruction -> getParent() == parent){
+				Node* tempNode = new Node(SuccInstruction);
+				(tempNode -> Pred).push_back(tempNode);
+				Succ.push_back(tempNode);
+			}
+		} else {
+			LLVM_DEBUG(dbgs() << "Instruction is in middle of BB \n";);
+			Instruction* SuccInstruction = nullptr;
+			SuccInstruction = I -> getNextNonDebugInstruction();
+			if(SuccInstruction && SuccInstruction -> getParent() == parent){
+				Node* tempNode = new Node(SuccInstruction);
+				(tempNode -> Pred).push_back(this);
+				Succ.push_back(tempNode);
+			}
+		}
 	}
 }
 
