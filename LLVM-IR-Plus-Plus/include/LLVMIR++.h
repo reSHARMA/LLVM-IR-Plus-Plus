@@ -5,8 +5,8 @@
 #include <cassert>
 #include <iterator>
 #include <memory>
-#include <utility>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
@@ -136,12 +136,13 @@ class Node;
 using NodeList = std::vector<Node*>;
 InstMetaMap IRPlusPlus;
 
+enum InstType { ir, update, call };
 
-enum InstType { ir, update, call};
+enum CallType { direct, indirect, virt, intrinsic };
 
 /* Node is the basic unit of CFG */
 class Node {
-	public:
+       public:
 	// Instruction in the LLVM IR
 	Instruction* Inst;
 	// Abstracted LHS
@@ -154,8 +155,12 @@ class Node {
 	int loc;
 	// list of succsessors and predesessors
 	NodeList Succ, Pred;
+	CallType callType;
+	Function* Func;
+	Expression* Callee;
+
 	void resetNode();
-	
+
 	// Returns the successors from the abstracted CFG
 	NodeList getSucc();
 
@@ -164,7 +169,7 @@ class Node {
 
 	// returns both abstracted and unabstracted successor nodes
 	NodeList getRealSucc();
-		
+
 	// returns both abstracted and unabstracted predecessor nodes
 	NodeList getRealPred();
 
@@ -173,20 +178,14 @@ class Node {
 	Node(Instruction*);
 };
 
-enum CallType {direct, indirect, virt, intrinsic};
-
-class CallNode : public Node {
-	public:
-	CallType type;
-};
-
 class CFG {
-	private:
+       private:
 	// Unique entry node for cfg
 	Node* StartNode;
 	// Unique exit node for cfg
 	Node* EndNode;
-	public:
+
+       public:
 	// Default constructor to set entry and exit nodes as null
 	CFG();
 	// Initialize cfg for a LLVM Module

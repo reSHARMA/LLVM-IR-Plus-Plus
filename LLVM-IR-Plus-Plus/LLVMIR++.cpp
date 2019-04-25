@@ -534,6 +534,8 @@ Node::Node(Instruction *I){
 		// Stores are abstracted
 		if(isa<StoreInst>(I)){
 			abstractedInto = update;
+		} else if (isa<CallInst>(I)){
+			abstractedInto = call;
 		}
 		// If abstracted then calculate LHS and RHS 
 		if(abstractedInto == update){
@@ -541,6 +543,38 @@ Node::Node(Instruction *I){
 			if(storeInst){
 				LHS = IRPlusPlus[storeInst] -> LHS;
 				RHS = IRPlusPlus[storeInst] -> RHS;
+			}
+		} else if(abstractedInto == call){
+			CallInst* tempCall = dyn_cast<CallInst>(I);
+			Function* calledFunction = tempCall -> getCalledFunction();
+			if(calledFunction){
+				if(calledFunction -> isIntrinsic()){
+					callType = intrinsic;
+				} else {
+					callType = direct;
+					Func = calledFunction;
+				}
+			} else {
+				CallSite cs(tempCall);
+				Value *virtFunc = cs.getCalledValue();
+				if (LoadInst *virtFuncLoadInst =
+						dyn_cast<LoadInst>(virtFunc)) {
+						Value *virtFuncPtr =
+							virtFuncLoadInst->getPointerOperand();
+	if (GetElementPtrInst *virtFuncPtrGEPInst = dyn_cast<GetElementPtrInst>(virtFuncPtr)) {
+		if (virtFuncPtrGEPInst->getNumIndices() == 1){
+			Value *virtTable = virtFuncPtrGEPInst->getPointerOperand();
+			 if (isa<LoadInst>(virtTable)) {
+				callType = virt;
+			 }
+		}
+	}
+}
+	if(callType == virt){
+		Value* callValue = I -> getOperand(0);
+		LoadInst* inst = dyn_cast<LoadInst>(callValue);
+		Callee = new RHSExpression(inst -> getPointerOperand());
+	}
 			}
 		}
 		if(I == BBEndInst){
