@@ -393,10 +393,12 @@ bool LLVMIRPlusPlusPass::runOnModule(Module& M) {
 			}
 		}
 	}
-	Module *Mod = &M;
-	CFG* cfg = new CFG();
-	cfg -> init(Mod);
-	grcfg = &*cfg;
+	for (Function& F : M){
+		Function *Func = &F;
+		CFG* cfg = new CFG();
+		cfg -> init(Func);
+		grcfg[Func] = &*cfg;
+	}
 	return false;
 }
 
@@ -581,75 +583,72 @@ CFG::CFG(){
 	EndNode = nullptr;
 }
 
-void CFG::init(Module* M){
+void CFG::init(Function* F){
 	// Check if the cfg already exist
 	if(StartNode){
 		// The cgf is already inited
 		return;
 	}
-	// Iterate over module
-	for(Function& F : *M){
-		// Iterate over functions 
-		for(BasicBlock& BB : F){
-			// Iterate over basicblocks
-			for(Instruction& I : BB){
-				// create a temp node for the first
-				// instruction, this will be the unique
-				// entry node
-				Node* tempNode = new Node(&I);
-				// If no entry node is present make this
-				// an entry node
-				if(!StartNode){
-					// No entry node present
-					StartNode = tempNode;
-				}
-				// There can be multiple leaves in the 
-				// tree which are stored in EndInstList
-				NodeList EndInstList;
-				// Traverse over all the nodes until the
-				// worklist is empty
-				NodeList WorkList;
-				WorkList.push_back(StartNode);
-				while(! WorkList.empty()){
-					// Take a node from worklist
-					Node* temp = WorkList.back();
-					// Remove it from worklist
-					WorkList.pop_back();
-					// If it is an leave node put it into 
-					// EndInstList
-					if((temp -> getRealSucc()).size() == 0){
-						// temp is a leaf node
-						EndInstList.push_back(temp);
-					}
-					// Insert successors of present node in
-					// the worklist
-					for(Node* s : temp -> getRealSucc()){
-						WorkList.push_back(s);
-					}
-				}
-				// endNode is the exit node
-				// It is the pseudo node and is the only node with
-				// Instruction field null
-				Node* endNode = new Node;
-				for(Node* end : WorkList){
-					// Make edge between return nodes and end nodes
-					// 	R1	R2	R3
-					//	\\	||     //
-					// 	 \\	||    //	
-					// 	  \\    ||   //
-					// 	      endNode
-					(end -> getRealSucc()).push_back(endNode);
-					(endNode -> getRealPred()).push_back(end);
-				}
-				break;
+	// Iterate over functions 
+	for(BasicBlock& BB : *F){
+		// Iterate over basicblocks
+		for(Instruction& I : BB){
+			// create a temp node for the first
+			// instruction, this will be the unique
+			// entry node
+			Node* tempNode = new Node(&I);
+			// If no entry node is present make this
+			// an entry node
+			if(!StartNode){
+				// No entry node present
+				StartNode = tempNode;
 			}
+			// There can be multiple leaves in the 
+			// tree which are stored in EndInstList
+			NodeList EndInstList;
+			// Traverse over all the nodes until the
+			// worklist is empty
+			NodeList WorkList;
+			WorkList.push_back(StartNode);
+			while(! WorkList.empty()){
+				// Take a node from worklist
+				Node* temp = WorkList.back();
+				// Remove it from worklist
+				WorkList.pop_back();
+				// If it is an leave node put it into 
+				// EndInstList
+				if((temp -> getRealSucc()).size() == 0){
+					// temp is a leaf node
+					EndInstList.push_back(temp);
+				}
+				// Insert successors of present node in
+				// the worklist
+				for(Node* s : temp -> getRealSucc()){
+					WorkList.push_back(s);
+				}
+			}
+			// endNode is the exit node
+			// It is the pseudo node and is the only node with
+			// Instruction field null
+			Node* endNode = new Node;
+			for(Node* end : WorkList){
+				// Make edge between return nodes and end nodes
+				// 	R1	R2	R3
+				//	\\	||     //
+				// 	 \\	||    //	
+				// 	  \\    ||   //
+				// 	      endNode
+				(end -> getRealSucc()).push_back(endNode);
+				(endNode -> getRealPred()).push_back(end);
+			}
+			break;
 		}
 	}
 }
 
 
 InstMetaMap LLVMIRPlusPlusPass::getIRPlusPlus() { return IRPlusPlus; }
-CFG* LLVMIRPlusPlusPass::getCFG(){ return grcfg; }
+FunctionToCFG LLVMIRPlusPlusPass::getCFG(){ return grcfg; }
 
 char LLVMIRPlusPlusPass::ID = 0;
 static RegisterPass<LLVMIRPlusPlusPass> X(

@@ -173,7 +173,7 @@ class Node {
 	Node(Instruction*);
 };
 
-enum CallType {direct, indirect, virtual, intrinsic};
+enum CallType {direct, indirect, virt, intrinsic};
 
 class CallNode : public Node {
 	public:
@@ -190,13 +190,15 @@ class CFG {
 	// Default constructor to set entry and exit nodes as null
 	CFG();
 	// Initialize cfg for a LLVM Module
-	void init(Module* M);
+	void init(Function*);
 };
+
+using FunctionToCFG = std::map<Function*, CFG*>;
 
 class LLVMIRPlusPlusPass : public ModulePass {
        public:
 	// grcfg is the abstracted cfg
-	CFG* grcfg;
+	FunctionToCFG grcfg;
 	static char ID;
 	LLVMIRPlusPlusPass();
 	bool runOnModule(Module&) override;
@@ -205,7 +207,7 @@ class LLVMIRPlusPlusPass : public ModulePass {
 	// returns generated metadata
 	InstMetaMap getIRPlusPlus();
 	// returns the abstracted cfg
-	CFG* getCFG();
+	FunctionToCFG getCFG();
 	// force generate metadata for one store instruction
 	void generateMetaData(StoreInst*);
 	// returns CFG
