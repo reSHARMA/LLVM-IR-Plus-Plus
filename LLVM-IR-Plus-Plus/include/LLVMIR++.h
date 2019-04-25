@@ -137,22 +137,23 @@ using NodeList = std::vector<Node*>;
 InstMetaMap IRPlusPlus;
 
 
+enum InstType { ir, update, call};
+
 /* Node is the basic unit of CFG */
 class Node {
-	private:
+	public:
 	// Instruction in the LLVM IR
 	Instruction* Inst;
 	// Abstracted LHS
 	Expression* LHS;
 	// Abstracted RHS
 	Expression* RHS;
-	// is the llvm ir instruction abstracted
-	bool isAbstracted;
+	// Instructions are abstracted into ir (llvm), update and call.
+	InstType abstractedInto;
 	// line number in the source code
 	int loc;
 	// list of succsessors and predesessors
 	NodeList Succ, Pred;
-	public:
 	void resetNode();
 	
 	// Returns the successors from the abstracted CFG
@@ -170,6 +171,13 @@ class Node {
 	Node();
 
 	Node(Instruction*);
+};
+
+enum CallType {direct, indirect, virtual, intrinsic};
+
+class CallNode : public Node {
+	public:
+	CallType type;
 };
 
 class CFG {

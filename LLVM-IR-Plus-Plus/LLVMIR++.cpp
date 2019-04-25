@@ -453,7 +453,7 @@ void Node::resetNode(){
 	Inst = nullptr;
 	LHS = nullptr;
 	RHS = nullptr;
-	isAbstracted = false;
+	abstractedInto = ir;
 	loc = -1;
 }
 
@@ -468,7 +468,7 @@ NodeList Node::getSucc(){
 	while(!WorkList.empty()){
 		Node* temp = WorkList.back();
 		WorkList.pop_back();
-		if(temp -> isAbstracted == true){
+		if(temp -> abstractedInto != ir){
 			ans.push_back(temp);
 		} else {
 			std::vector<Node*> s = temp -> getRealSucc();
@@ -491,7 +491,7 @@ NodeList Node::getPred(){
 	while(!WorkList.empty()){
 		Node* temp = WorkList.back();
 		WorkList.pop_back();
-		if(temp -> isAbstracted == true){
+		if(temp -> abstractedInto != ir){
 			ans.push_back(temp);
 		} else {
 			std::vector<Node*> p = temp -> getRealPred();
@@ -531,10 +531,10 @@ Node::Node(Instruction *I){
 		Inst = I;
 		// Stores are abstracted
 		if(isa<StoreInst>(I)){
-			isAbstracted = true;
+			abstractedInto = update;
 		}
 		// If abstracted then calculate LHS and RHS 
-		if(isAbstracted){
+		if(abstractedInto == update){
 			StoreInst* storeInst = dyn_cast<StoreInst>(I);
 			if(storeInst){
 				LHS = IRPlusPlus[storeInst] -> LHS;
