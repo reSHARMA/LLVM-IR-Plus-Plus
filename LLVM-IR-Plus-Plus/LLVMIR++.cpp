@@ -449,6 +449,74 @@ void LLVMIRPlusPlusPass::printExp(Expression* L) {
 	}
 }
 
+void Node::resetNode(){
+	Inst = nullptr;
+	LHS = nullptr;
+	RHS = nullptr;
+	isAbstracted = false;
+	loc = -1;
+}
+
+NodeList Node::getSucc(){
+	// Returns the successors from the abstracted CFG
+	// If the successor of any node is not abstracted 
+	// it goes a level up until it finds a node which
+	// is abstracted
+	NodeList ans;
+	NodeList WorkList;
+	WorkList = getRealSucc();
+	while(!WorkList.empty()){
+		Node* temp = WorkList.back();
+		WorkList.pop_back();
+		if(temp -> isAbstracted == true){
+			ans.push_back(temp);
+		} else {
+			std::vector<Node*> s = temp -> getRealSucc();
+			for(Node* n : s){
+				WorkList.push_back(n);
+			}
+		}
+	}
+	return ans;
+}
+
+NodeList Node::getPred(){
+	// Returns the predecessors from the abstracted CFG
+	// If the predecessor of any node is not abstracted 
+	// it goes a level down until it finds a node which
+	// is abstracted
+	NodeList ans;
+	NodeList WorkList;
+	WorkList = getRealPred();
+	while(!WorkList.empty()){
+		Node* temp = WorkList.back();
+		WorkList.pop_back();
+		if(temp -> isAbstracted == true){
+			ans.push_back(temp);
+		} else {
+			std::vector<Node*> p = temp -> getRealPred();
+			for(Node* n : p){
+				WorkList.push_back(n);
+			}
+		}
+	}
+	return ans;
+}
+
+NodeList Node::getRealSucc(){
+	// returns both abstracted and unabstracted successor nodes
+	return Succ;
+}
+
+NodeList Node::getRealPred(){
+	// returns both abstracted and unabstracted predecessor nodes
+	return Pred;
+}
+
+Node::Node(){
+	resetNode();
+}
+
 Node::Node(Instruction *I){
 	LLVM_DEBUG(dbgs() << " ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ \n";);
 	resetNode();
@@ -461,9 +529,11 @@ Node::Node(Instruction *I){
 		Instruction* BBEndInst = &(parent -> back());
 		LLVM_DEBUG(dbgs() << "BasicBlock ends with " << *BBEndInst << " \n";);
 		Inst = I;
+		// Stores are abstracted
 		if(isa<StoreInst>(I)){
 			isAbstracted = true;
 		}
+		// If abstracted then calculate LHS and RHS 
 		if(isAbstracted){
 			StoreInst* storeInst = dyn_cast<StoreInst>(I);
 			if(storeInst){
@@ -472,6 +542,9 @@ Node::Node(Instruction *I){
 			}
 		}
 		if(I == BBEndInst){
+			// The instruction is the last instruction of the basic block
+			// It's successor would be the first instruction of all it's
+			// successor basic block
 			LLVM_DEBUG(dbgs() << "Instruction is the end instruction \n";);
 			for(BasicBlock *S : successors(parent)){
 				Node* tempNode = new Node(&(S -> front()));
@@ -479,6 +552,9 @@ Node::Node(Instruction *I){
 				Succ.push_back(tempNode);
 			}
 		} else if(I == BBStartInst){
+			// The instruction is the start instruction of the basic block
+			// It's predecessors would be the last instructions of the predecessor 
+			// basic block
 			LLVM_DEBUG(dbgs() << "Instruction is the start instruction \n";);
 			Instruction* SuccInstruction = nullptr;
 			SuccInstruction = I -> getNextNonDebugInstruction();
@@ -500,7 +576,80 @@ Node::Node(Instruction *I){
 	}
 }
 
+CFG::CFG(){
+	StartNode = nullptr;
+	EndNode = nullptr;
+}
+
+void CFG::init(Module* M){
+	// Check if the cfg already exist
+	if(StartNode){
+		// The cgf is already inited
+		return;
+	}
+	// Iterate over module
+	for(Function& F : *M){
+		// Iterate over functions 
+		for(BasicBlock& BB : F){
+			// Iterate over basicblocks
+			for(Instruction& I : BB){
+				// create a temp node for the first
+				// instruction, this will be the unique
+				// entry node
+				Node* tempNode = new Node(&I);
+				// If no entry node is present make this
+				// an entry node
+				if(!StartNode){
+					// No entry node present
+					StartNode = tempNode;
+				}
+				// There can be multiple leaves in the 
+				// tree which are stored in EndInstList
+				NodeList EndInstList;
+				// Traverse over all the nodes until the
+				// worklist is empty
+				NodeList WorkList;
+				WorkList.push_back(StartNode);
+				while(! WorkList.empty()){
+					// Take a node from worklist
+					Node* temp = WorkList.back();
+					// Remove it from worklist
+					WorkList.pop_back();
+					// If it is an leave node put it into 
+					// EndInstList
+					if((temp -> getRealSucc()).size() == 0){
+						// temp is a leaf node
+						EndInstList.push_back(temp);
+					}
+					// Insert successors of present node in
+					// the worklist
+					for(Node* s : temp -> getRealSucc()){
+						WorkList.push_back(s);
+					}
+				}
+				// endNode is the exit node
+				// It is the pseudo node and is the only node with
+				// Instruction field null
+				Node* endNode = new Node;
+				for(Node* end : WorkList){
+					// Make edge between return nodes and end nodes
+					// 	R1	R2	R3
+					//	\\	||     //
+					// 	 \\	||    //	
+					// 	  \\    ||   //
+					// 	      endNode
+					(end -> getRealSucc()).push_back(endNode);
+					(endNode -> getRealPred()).push_back(end);
+				}
+				break;
+			}
+		}
+	}
+}
+
+
 InstMetaMap LLVMIRPlusPlusPass::getIRPlusPlus() { return IRPlusPlus; }
+CFG* LLVMIRPlusPlusPass::getCFG(){ return grcfg; }
 
 char LLVMIRPlusPlusPass::ID = 0;
 static RegisterPass<LLVMIRPlusPlusPass> X(
