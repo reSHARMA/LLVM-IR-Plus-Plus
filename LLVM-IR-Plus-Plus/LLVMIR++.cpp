@@ -372,6 +372,48 @@ UpdateInst::UpdateInst(StoreInst* I) {
 	RHS = new RHSExpression(StoreInstRHS);
 }
 
+void UpdateInst::print(){
+	this -> LHS -> print();
+	LLVM_DEBUG(dbgs() << " = ");
+	this -> RHS -> print();
+}
+
+void Expression::print() { 
+	Expression* L = this;
+        if(L == nullptr){
+                return;
+        }   
+        // prints the expression in formal LHS = RHS
+        if (L->symbol == constant) {
+                LLVM_DEBUG(dbgs() << "constant";);
+                return;
+        }   
+        if (L -> symbol == address){
+                LLVM_DEBUG(dbgs() << " (&) " ;); 
+        }   
+        if (L->type) {
+                LLVM_DEBUG(dbgs() << " [ " << *(L->type) << " ] "
+                                  << " ";);
+        }   
+        if (L->symbol == pointer) {
+                LLVM_DEBUG(dbgs() << "*";);
+        }   
+        if (L->base) {
+                LLVM_DEBUG(dbgs() << L->base->getName() << " ";);
+        } else if (L->functionArg) {
+                LLVM_DEBUG(dbgs() << L->functionArg->getName() << " ";);
+        }   
+        if (L->symbol == arrow) {
+                LLVM_DEBUG(dbgs() << " -> ";);
+        }   
+        if (L->symbol == dot) {
+                LLVM_DEBUG(dbgs() << " . ";);
+        }   
+        if (L->optional) {
+                LLVM_DEBUG(dbgs() << L->optional->getName(););
+        }   
+}
+
 LLVMIRPlusPlusPass::LLVMIRPlusPlusPass() : ModulePass(ID) {}
 
 bool LLVMIRPlusPlusPass::runOnModule(Module& M) {

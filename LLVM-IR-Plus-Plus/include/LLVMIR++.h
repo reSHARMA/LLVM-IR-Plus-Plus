@@ -94,6 +94,7 @@ class Expression {
 	bool handleGlobalVariable(Value*);
 	Expression();
 	Expression(const Expression*);
+	void print();
 	class ExpEqual {
 	       public:
 		bool operator()(Expression const*, Expression const*) const;
@@ -128,6 +129,7 @@ class UpdateInst {
        public:
 	Expression *LHS, *RHS;
 	UpdateInst(StoreInst* I);
+	void print();
 };
 
 /* Maps store instruction to the meta data */
