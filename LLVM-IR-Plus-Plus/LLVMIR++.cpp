@@ -438,7 +438,7 @@ bool LLVMIRPlusPlusPass::runOnModule(Module& M) {
 	for (Function& F : M){
 		Function *Func = &F;
 		CFG* cfg = new CFG();
-		cfg -> init(Func);
+		cfg -> init(Func, IRPlusPlus);
 		grcfg[Func] = &*cfg;
 	}
 	return false;
@@ -450,7 +450,13 @@ bool LLVMIRPlusPlusPass::runOnModule(Module& M) {
  * LHS and RHS
  */
 void LLVMIRPlusPlusPass::generateMetaData(StoreInst* StoreI) {
+	if(StoreI == nullptr){
+		return;
+	}
 	UpdateInst* UpdateI = new UpdateInst(StoreI);
+	if(UpdateI == nullptr){
+		return;
+	}
 	IRPlusPlus[StoreI] = UpdateI;
 	Expression* L = UpdateI->LHS;
 	printExp(L);
@@ -561,7 +567,7 @@ Node::Node(){
 	resetNode();
 }
 
-Node::Node(Instruction *I){
+Node::Node(Instruction *I, InstMetaMap IRPlusPlus){
 	LLVM_DEBUG(dbgs() << " ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ \n";);
 	resetNode();
 	if(I){
@@ -583,8 +589,10 @@ Node::Node(Instruction *I){
 		if(abstractedInto == update){
 			StoreInst* storeInst = dyn_cast<StoreInst>(I);
 			if(storeInst){
-				LHS = IRPlusPlus[storeInst] -> LHS;
-				RHS = IRPlusPlus[storeInst] -> RHS;
+				if(IRPlusPlus.find(storeInst) != IRPlusPlus.end()){
+					LHS = IRPlusPlus[storeInst] -> LHS;
+					RHS = IRPlusPlus[storeInst] -> RHS;
+				}
 			}
 		} else if(abstractedInto == call){
 			CallInst* tempCall = dyn_cast<CallInst>(I);
@@ -625,7 +633,7 @@ Node::Node(Instruction *I){
 			// successor basic block
 			LLVM_DEBUG(dbgs() << "Instruction is the end instruction \n";);
 			for(BasicBlock *S : successors(parent)){
-				Node* tempNode = new Node(&(S -> front()));
+				Node* tempNode = new Node(&(S -> front()), IRPlusPlus);
 				(tempNode -> Pred).push_back(this);
 				Succ.push_back(tempNode);
 			}
@@ -637,7 +645,7 @@ Node::Node(Instruction *I){
 			Instruction* SuccInstruction = nullptr;
 			SuccInstruction = I -> getNextNonDebugInstruction();
 			if(SuccInstruction && SuccInstruction -> getParent() == parent){
-				Node* tempNode = new Node(SuccInstruction);
+				Node* tempNode = new Node(SuccInstruction, IRPlusPlus);
 				(tempNode -> Pred).push_back(tempNode);
 				Succ.push_back(tempNode);
 			}
@@ -646,7 +654,7 @@ Node::Node(Instruction *I){
 			Instruction* SuccInstruction = nullptr;
 			SuccInstruction = I -> getNextNonDebugInstruction();
 			if(SuccInstruction && SuccInstruction -> getParent() == parent){
-				Node* tempNode = new Node(SuccInstruction);
+				Node* tempNode = new Node(SuccInstruction, IRPlusPlus);
 				(tempNode -> Pred).push_back(this);
 				Succ.push_back(tempNode);
 			}
@@ -659,7 +667,7 @@ CFG::CFG(){
 	EndNode = nullptr;
 }
 
-void CFG::init(Function* F){
+void CFG::init(Function* F, InstMetaMap IRPlusPlus){
 	// Check if the cfg already exist
 	if(StartNode){
 		// The cgf is already inited
@@ -672,7 +680,7 @@ void CFG::init(Function* F){
 			// create a temp node for the first
 			// instruction, this will be the unique
 			// entry node
-			Node* tempNode = new Node(&I);
+			Node* tempNode = new Node(&I, IRPlusPlus);
 			// If no entry node is present make this
 			// an entry node
 			if(!StartNode){

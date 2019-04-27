@@ -136,7 +136,6 @@ class UpdateInst {
 using InstMetaMap = std::map<StoreInst*, UpdateInst*>;
 class Node;
 using NodeList = std::vector<Node*>;
-InstMetaMap IRPlusPlus;
 
 enum InstType { ir, update, call };
 
@@ -177,7 +176,7 @@ class Node {
 
 	Node();
 
-	Node(Instruction*);
+	Node(Instruction*, InstMetaMap);
 };
 
 class CFG {
@@ -191,7 +190,7 @@ class CFG {
 	// Default constructor to set entry and exit nodes as null
 	CFG();
 	// Initialize cfg for a LLVM Module
-	void init(Function*);
+	void init(Function*, InstMetaMap);
 };
 
 using FunctionToCFG = std::map<Function*, CFG*>;
@@ -200,6 +199,7 @@ class LLVMIRPlusPlusPass : public ModulePass {
        public:
 	// grcfg is the abstracted cfg
 	FunctionToCFG grcfg;
+	InstMetaMap IRPlusPlus;
 	static char ID;
 	LLVMIRPlusPlusPass();
 	bool runOnModule(Module&) override;
