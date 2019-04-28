@@ -372,46 +372,46 @@ UpdateInst::UpdateInst(StoreInst* I) {
 	RHS = new RHSExpression(StoreInstRHS);
 }
 
-void UpdateInst::print(){
-	this -> LHS -> print();
+void UpdateInst::print() {
+	this->LHS->print();
 	LLVM_DEBUG(dbgs() << " = ");
-	this -> RHS -> print();
+	this->RHS->print();
 }
 
-void Expression::print() { 
+void Expression::print() {
 	Expression* L = this;
-        if(L == nullptr){
-                return;
-        }   
-        // prints the expression in formal LHS = RHS
-        if (L->symbol == constant) {
-                LLVM_DEBUG(dbgs() << "constant";);
-                return;
-        }   
-        if (L -> symbol == address){
-                LLVM_DEBUG(dbgs() << " (&) " ;); 
-        }   
-        if (L->type) {
-                LLVM_DEBUG(dbgs() << " [ " << *(L->type) << " ] "
-                                  << " ";);
-        }   
-        if (L->symbol == pointer) {
-                LLVM_DEBUG(dbgs() << "*";);
-        }   
-        if (L->base) {
-                LLVM_DEBUG(dbgs() << L->base->getName() << " ";);
-        } else if (L->functionArg) {
-                LLVM_DEBUG(dbgs() << L->functionArg->getName() << " ";);
-        }   
-        if (L->symbol == arrow) {
-                LLVM_DEBUG(dbgs() << " -> ";);
-        }   
-        if (L->symbol == dot) {
-                LLVM_DEBUG(dbgs() << " . ";);
-        }   
-        if (L->optional) {
-                LLVM_DEBUG(dbgs() << L->optional->getName(););
-        }   
+	if (L == nullptr) {
+		return;
+	}
+	// prints the expression in formal LHS = RHS
+	if (L->symbol == constant) {
+		LLVM_DEBUG(dbgs() << "constant";);
+		return;
+	}
+	if (L->symbol == address) {
+		LLVM_DEBUG(dbgs() << " (&) ";);
+	}
+	if (L->type) {
+		LLVM_DEBUG(dbgs() << " [ " << *(L->type) << " ] "
+				  << " ";);
+	}
+	if (L->symbol == pointer) {
+		LLVM_DEBUG(dbgs() << "*";);
+	}
+	if (L->base) {
+		LLVM_DEBUG(dbgs() << L->base->getName() << " ";);
+	} else if (L->functionArg) {
+		LLVM_DEBUG(dbgs() << L->functionArg->getName() << " ";);
+	}
+	if (L->symbol == arrow) {
+		LLVM_DEBUG(dbgs() << " -> ";);
+	}
+	if (L->symbol == dot) {
+		LLVM_DEBUG(dbgs() << " . ";);
+	}
+	if (L->optional) {
+		LLVM_DEBUG(dbgs() << L->optional->getName(););
+	}
 }
 
 LLVMIRPlusPlusPass::LLVMIRPlusPlusPass() : ModulePass(ID) {}
@@ -435,10 +435,10 @@ bool LLVMIRPlusPlusPass::runOnModule(Module& M) {
 			}
 		}
 	}
-	for (Function& F : M){
-		Function *Func = &F;
+	for (Function& F : M) {
+		Function* Func = &F;
 		CFG* cfg = new CFG();
-		cfg -> init(Func, IRPlusPlus);
+		cfg->init(Func, IRPlusPlus);
 		grcfg[Func] = &*cfg;
 	}
 	return false;
@@ -450,11 +450,11 @@ bool LLVMIRPlusPlusPass::runOnModule(Module& M) {
  * LHS and RHS
  */
 void LLVMIRPlusPlusPass::generateMetaData(StoreInst* StoreI) {
-	if(StoreI == nullptr){
+	if (StoreI == nullptr) {
 		return;
 	}
 	UpdateInst* UpdateI = new UpdateInst(StoreI);
-	if(UpdateI == nullptr){
+	if (UpdateI == nullptr) {
 		return;
 	}
 	IRPlusPlus[StoreI] = UpdateI;
@@ -499,7 +499,7 @@ void LLVMIRPlusPlusPass::printExp(Expression* L) {
 	}
 }
 
-void Node::resetNode(){
+void Node::resetNode() {
 	Inst = nullptr;
 	LHS = nullptr;
 	RHS = nullptr;
@@ -507,22 +507,22 @@ void Node::resetNode(){
 	loc = -1;
 }
 
-NodeList Node::getSucc(){
+NodeList Node::getSucc() {
 	// Returns the successors from the abstracted CFG
-	// If the successor of any node is not abstracted 
+	// If the successor of any node is not abstracted
 	// it goes a level up until it finds a node which
 	// is abstracted
 	NodeList ans;
 	NodeList WorkList;
 	WorkList = getRealSucc();
-	while(!WorkList.empty()){
+	while (!WorkList.empty()) {
 		Node* temp = WorkList.back();
 		WorkList.pop_back();
-		if(temp -> abstractedInto != ir){
+		if (temp->abstractedInto != ir) {
 			ans.push_back(temp);
 		} else {
-			std::vector<Node*> s = temp -> getRealSucc();
-			for(Node* n : s){
+			std::vector<Node*> s = temp->getRealSucc();
+			for (Node* n : s) {
 				WorkList.push_back(n);
 			}
 		}
@@ -530,22 +530,22 @@ NodeList Node::getSucc(){
 	return ans;
 }
 
-NodeList Node::getPred(){
+NodeList Node::getPred() {
 	// Returns the predecessors from the abstracted CFG
-	// If the predecessor of any node is not abstracted 
+	// If the predecessor of any node is not abstracted
 	// it goes a level down until it finds a node which
 	// is abstracted
 	NodeList ans;
 	NodeList WorkList;
 	WorkList = getRealPred();
-	while(!WorkList.empty()){
+	while (!WorkList.empty()) {
 		Node* temp = WorkList.back();
 		WorkList.pop_back();
-		if(temp -> abstractedInto != ir){
+		if (temp->abstractedInto != ir) {
 			ans.push_back(temp);
 		} else {
-			std::vector<Node*> p = temp -> getRealPred();
-			for(Node* n : p){
+			std::vector<Node*> p = temp->getRealPred();
+			for (Node* n : p) {
 				WorkList.push_back(n);
 			}
 		}
@@ -553,161 +553,186 @@ NodeList Node::getPred(){
 	return ans;
 }
 
-NodeList Node::getRealSucc(){
+NodeList Node::getRealSucc() {
 	// returns both abstracted and unabstracted successor nodes
 	return Succ;
 }
 
-NodeList Node::getRealPred(){
+NodeList Node::getRealPred() {
 	// returns both abstracted and unabstracted predecessor nodes
 	return Pred;
 }
 
-Node::Node(){
-	resetNode();
+void Node::print(){
+	if(abstractedInto == update){
+		LHS -> print();
+		LLVM_DEBUG(dbgs() << " = ";);
+		RHS -> print();
+	} else if(abstractedInto == call){
+	
+	}
 }
 
-Node::Node(Instruction *I, InstMetaMap IRPlusPlus){
-	LLVM_DEBUG(dbgs() << " ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ \n";);
+Node::Node() { resetNode(); }
+
+Node::Node(Instruction* I, InstMetaMap IRPlusPlus) {
+	LLVM_DEBUG(
+	    dbgs() << " ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ \n";);
 	resetNode();
-	if(I){
+	if (I) {
 		LLVM_DEBUG(dbgs() << "Working on instruction " << *I << " \n";);
-		BasicBlock* parent = I -> getParent();
-		LLVM_DEBUG(dbgs() << "BasicBlock is " << *parent << " \n";);
-		Instruction* BBStartInst = &(parent -> front());
-		LLVM_DEBUG(dbgs() << "BasicBlock starts with " << *BBStartInst << " \n";);
-		Instruction* BBEndInst = &(parent -> back());
-		LLVM_DEBUG(dbgs() << "BasicBlock ends with " << *BBEndInst << " \n";);
+		BasicBlock* parent = I->getParent();
+		Instruction* BBStartInst = &(parent->front());
+		LLVM_DEBUG(dbgs() << "BasicBlock starts with " << *BBStartInst
+				  << " \n";);
+		Instruction* BBEndInst = &(parent->back());
+		LLVM_DEBUG(dbgs() << "BasicBlock ends with " << *BBEndInst
+				  << " \n";);
 		Inst = I;
 		// Stores are abstracted
-		if(isa<StoreInst>(I)){
+		if (isa<StoreInst>(I)) {
 			abstractedInto = update;
-		} else if (isa<CallInst>(I)){
+		} else if (isa<CallInst>(I)) {
 			abstractedInto = call;
 		}
-		// If abstracted then calculate LHS and RHS 
-		if(abstractedInto == update){
+		// If abstracted then calculate LHS and RHS
+		if (abstractedInto == update) {
+			LLVM_DEBUG(dbgs() << "update node detected \n";);
 			StoreInst* storeInst = dyn_cast<StoreInst>(I);
-			if(storeInst){
-				if(IRPlusPlus.find(storeInst) != IRPlusPlus.end()){
-					LHS = IRPlusPlus[storeInst] -> LHS;
-					RHS = IRPlusPlus[storeInst] -> RHS;
+			if (storeInst) {
+				if (IRPlusPlus.find(storeInst) !=
+				    IRPlusPlus.end()) {
+					LHS = IRPlusPlus[storeInst]->LHS;
+					RHS = IRPlusPlus[storeInst]->RHS;
 				}
 			}
-		} else if(abstractedInto == call){
+		} else if (abstractedInto == call) {
+			LLVM_DEBUG(dbgs() << "call node detected \n";);
 			CallInst* tempCall = dyn_cast<CallInst>(I);
-			Function* calledFunction = tempCall -> getCalledFunction();
-			if(calledFunction){
-				if(calledFunction -> isIntrinsic()){
+			Function* calledFunction = tempCall->getCalledFunction();
+			if (calledFunction) {
+				if (calledFunction->isIntrinsic()) {
+					LLVM_DEBUG(dbgs() << "It is Intrinsic \n";);
 					callType = intrinsic;
 				} else {
+					LLVM_DEBUG(dbgs() << "It is Direct \n";);
 					callType = direct;
 					Func = calledFunction;
 				}
 			} else {
 				CallSite cs(tempCall);
-				Value *virtFunc = cs.getCalledValue();
-				if (LoadInst *virtFuncLoadInst =
-						dyn_cast<LoadInst>(virtFunc)) {
-						Value *virtFuncPtr =
-							virtFuncLoadInst->getPointerOperand();
-	if (GetElementPtrInst *virtFuncPtrGEPInst = dyn_cast<GetElementPtrInst>(virtFuncPtr)) {
-		if (virtFuncPtrGEPInst->getNumIndices() == 1){
-			Value *virtTable = virtFuncPtrGEPInst->getPointerOperand();
-			 if (isa<LoadInst>(virtTable)) {
-				callType = virt;
-			 }
-		}
-	}
-}
-	if(callType == virt){
-		Value* callValue = I -> getOperand(0);
-		LoadInst* inst = dyn_cast<LoadInst>(callValue);
-		Callee = new RHSExpression(inst -> getPointerOperand());
-	}
+				Value* virtFunc = cs.getCalledValue();
+				if (LoadInst* virtFuncLoadInst = dyn_cast<LoadInst>(virtFunc)) {
+					Value* virtFuncPtr = virtFuncLoadInst -> getPointerOperand();
+					if (GetElementPtrInst* virtFuncPtrGEPInst = dyn_cast<GetElementPtrInst>(virtFuncPtr)) {
+						if (virtFuncPtrGEPInst ->getNumIndices() == 1) {
+							Value* virtTable = virtFuncPtrGEPInst ->getPointerOperand();
+							if (isa<LoadInst>(virtTable)) {
+								callType = virt;
+							}
+						}
+					}
+				}
+				if (callType == virt) {
+					LLVM_DEBUG(dbgs() << "It is a Virtual \n";);
+					Value* callValue = I->getOperand(0);
+					LoadInst* inst =
+					    dyn_cast<LoadInst>(callValue);
+					Callee = new RHSExpression(
+					    inst->getPointerOperand());
+				}
 			}
 		}
-		if(I == BBEndInst){
-			// The instruction is the last instruction of the basic block
-			// It's successor would be the first instruction of all it's
-			// successor basic block
-			LLVM_DEBUG(dbgs() << "Instruction is the end instruction \n";);
-			for(BasicBlock *S : successors(parent)){
-				Node* tempNode = new Node(&(S -> front()), IRPlusPlus);
-				(tempNode -> Pred).push_back(this);
+		if (I == BBEndInst) {
+			// The instruction is the last instruction of the basic
+			// block It's successor would be the first instruction
+			// of all it's successor basic block
+			LLVM_DEBUG(
+			    dbgs() << "Instruction is the end instruction \n";);
+			for (BasicBlock* S : successors(parent)) {
+				Node* tempNode =
+				    new Node(&(S->front()), IRPlusPlus);
+				(tempNode->Pred).push_back(this);
 				Succ.push_back(tempNode);
 			}
-		} else if(I == BBStartInst){
-			// The instruction is the start instruction of the basic block
-			// It's predecessors would be the last instructions of the predecessor 
-			// basic block
-			LLVM_DEBUG(dbgs() << "Instruction is the start instruction \n";);
+		} else if (I == BBStartInst) {
+			// The instruction is the start instruction of the basic
+			// block It's predecessors would be the last
+			// instructions of the predecessor basic block
+			LLVM_DEBUG(
+			    dbgs()
+				<< "Instruction is the start instruction \n";);
 			Instruction* SuccInstruction = nullptr;
-			SuccInstruction = I -> getNextNonDebugInstruction();
-			if(SuccInstruction && SuccInstruction -> getParent() == parent){
-				Node* tempNode = new Node(SuccInstruction, IRPlusPlus);
-				(tempNode -> Pred).push_back(tempNode);
+			SuccInstruction = I->getNextNonDebugInstruction();
+			if (SuccInstruction &&
+			    SuccInstruction->getParent() == parent) {
+				Node* tempNode =
+				    new Node(SuccInstruction, IRPlusPlus);
+				(tempNode->Pred).push_back(tempNode);
 				Succ.push_back(tempNode);
 			}
 		} else {
-			LLVM_DEBUG(dbgs() << "Instruction is in middle of BB \n";);
+			LLVM_DEBUG(dbgs()
+				       << "Instruction is in middle of BB \n";);
 			Instruction* SuccInstruction = nullptr;
-			SuccInstruction = I -> getNextNonDebugInstruction();
-			if(SuccInstruction && SuccInstruction -> getParent() == parent){
-				Node* tempNode = new Node(SuccInstruction, IRPlusPlus);
-				(tempNode -> Pred).push_back(this);
+			SuccInstruction = I->getNextNonDebugInstruction();
+			if (SuccInstruction &&
+			    SuccInstruction->getParent() == parent) {
+				Node* tempNode =
+				    new Node(SuccInstruction, IRPlusPlus);
+				(tempNode->Pred).push_back(this);
 				Succ.push_back(tempNode);
 			}
 		}
 	}
 }
 
-CFG::CFG(){
+CFG::CFG() {
 	StartNode = nullptr;
 	EndNode = nullptr;
 }
 
-void CFG::init(Function* F, InstMetaMap IRPlusPlus){
+void CFG::init(Function* F, InstMetaMap IRPlusPlus) {
 	// Check if the cfg already exist
-	if(StartNode){
+	if (StartNode) {
 		// The cgf is already inited
 		return;
 	}
-	// Iterate over functions 
-	for(BasicBlock& BB : *F){
+	// Iterate over functions
+	for (BasicBlock& BB : *F) {
 		// Iterate over basicblocks
-		for(Instruction& I : BB){
+		for (Instruction& I : BB) {
 			// create a temp node for the first
 			// instruction, this will be the unique
 			// entry node
 			Node* tempNode = new Node(&I, IRPlusPlus);
 			// If no entry node is present make this
 			// an entry node
-			if(!StartNode){
+			if (!StartNode) {
 				// No entry node present
 				StartNode = tempNode;
 			}
-			// There can be multiple leaves in the 
+			// There can be multiple leaves in the
 			// tree which are stored in EndInstList
 			NodeList EndInstList;
 			// Traverse over all the nodes until the
 			// worklist is empty
 			NodeList WorkList;
 			WorkList.push_back(StartNode);
-			while(! WorkList.empty()){
+			while (!WorkList.empty()) {
 				// Take a node from worklist
 				Node* temp = WorkList.back();
 				// Remove it from worklist
 				WorkList.pop_back();
-				// If it is an leave node put it into 
+				// If it is an leave node put it into
 				// EndInstList
-				if((temp -> getRealSucc()).size() == 0){
+				if ((temp->getRealSucc()).size() == 0) {
 					// temp is a leaf node
 					EndInstList.push_back(temp);
 				}
 				// Insert successors of present node in
 				// the worklist
-				for(Node* s : temp -> getRealSucc()){
+				for (Node* s : temp->getRealSucc()) {
 					WorkList.push_back(s);
 				}
 			}
@@ -715,24 +740,23 @@ void CFG::init(Function* F, InstMetaMap IRPlusPlus){
 			// It is the pseudo node and is the only node with
 			// Instruction field null
 			Node* endNode = new Node;
-			for(Node* end : WorkList){
+			for (Node* end : WorkList) {
 				// Make edge between return nodes and end nodes
 				// 	R1	R2	R3
 				//	\\	||     //
-				// 	 \\	||    //	
+				// 	 \\	||    //
 				// 	  \\    ||   //
 				// 	      endNode
-				(end -> getRealSucc()).push_back(endNode);
-				(endNode -> getRealPred()).push_back(end);
+				(end->getRealSucc()).push_back(endNode);
+				(endNode->getRealPred()).push_back(end);
 			}
 			break;
 		}
 	}
 }
 
-
 InstMetaMap LLVMIRPlusPlusPass::getIRPlusPlus() { return IRPlusPlus; }
-FunctionToCFG LLVMIRPlusPlusPass::getCFG(){ return grcfg; }
+FunctionToCFG LLVMIRPlusPlusPass::getCFG() { return grcfg; }
 
 char LLVMIRPlusPlusPass::ID = 0;
 static RegisterPass<LLVMIRPlusPlusPass> X(

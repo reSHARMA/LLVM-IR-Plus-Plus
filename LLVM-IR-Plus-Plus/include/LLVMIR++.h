@@ -137,6 +137,7 @@ using InstMetaMap = std::map<StoreInst*, UpdateInst*>;
 class Node;
 using NodeList = std::vector<Node*>;
 
+
 enum InstType { ir, update, call };
 
 enum CallType { direct, indirect, virt, intrinsic };
@@ -174,6 +175,9 @@ class Node {
 	// returns both abstracted and unabstracted predecessor nodes
 	NodeList getRealPred();
 
+	// Print node
+	void print();
+
 	Node();
 
 	Node(Instruction*, InstMetaMap);
@@ -191,6 +195,14 @@ class CFG {
 	CFG();
 	// Initialize cfg for a LLVM Module
 	void init(Function*, InstMetaMap);
+	// Get start and end nodes
+	Node* getStartNode(){
+		return StartNode;
+	}
+
+	Node* getEndNode(){
+		return EndNode;
+	}
 };
 
 using FunctionToCFG = std::map<Function*, CFG*>;
