@@ -17,6 +17,7 @@
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/AbstractCallSite.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instruction.h"
@@ -40,6 +41,10 @@
 using namespace llvm;
 
 #define DEBUG_TYPE "llvmir++"
+
+Instruction * resolveBase(Instruction * Inst);
+Instruction *handleGEP(GetElementPtrInst* Inst);
+std::vector<GetElementPtrInst*> GEPVec; 
 
 /* resetMetadata
  * Reset all Expression class member to their initial value
@@ -146,7 +151,7 @@ void LHSExpression::getMetaData(Value* Exp) {
 	if (Instruction* PreInst = dyn_cast<Instruction>(Exp)) {
 		// check if instruction is of type x = ...
 		if (AllocaInst* PreAllocaInst = dyn_cast<AllocaInst>(PreInst)) {
-			base = PreInst;
+            base = resolveBase(PreInst);
 			symbol = simple;
 			type = PreAllocaInst->getType();
 		} else if (LoadInst* PreLoadInst =
@@ -155,7 +160,7 @@ void LHSExpression::getMetaData(Value* Exp) {
 			Value* RHSPreLoadInst = PreLoadInst->getOperand(0);
 			if (AllocaInst* PreAllocaRHSPreLoadInst =
 				dyn_cast<AllocaInst>(RHSPreLoadInst)) {
-				base = cast<Instruction>(RHSPreLoadInst);
+				base = resolveBase(dyn_cast<Instruction>(RHSPreLoadInst));
 				symbol = pointer;
 				type = PreAllocaRHSPreLoadInst->getType();
 			}
@@ -163,7 +168,7 @@ void LHSExpression::getMetaData(Value* Exp) {
 			       dyn_cast<GetElementPtrInst>(PreInst)) {
 			// check if instruction is of type x.f = ... or
 			// x -> f = ...
-			optional = PreGEPInst;
+			optional = handleGEP(PreGEPInst);
 			Value* RHSPreGEPInst;
 			for (auto& op : PreGEPInst->operands()) {
 				RHSPreGEPInst = op;
@@ -175,7 +180,7 @@ void LHSExpression::getMetaData(Value* Exp) {
 				if (AllocaInst* PreAllocaPreInstRHSPreGEPInst =
 					dyn_cast<AllocaInst>(
 					    PreInstRHSPreGEPInst)) {
-					base = PreInstRHSPreGEPInst;
+					base = resolveBase(PreInstRHSPreGEPInst);
 					symbol = dot;
 					type = PreAllocaPreInstRHSPreGEPInst
 						   ->getType();
@@ -193,7 +198,7 @@ void LHSExpression::getMetaData(Value* Exp) {
 							dyn_cast<AllocaInst>(
 							    RHSPreLoadPreInstRHSPreGEPInst)) {
 							base =
-							    PreLoadPreInstRHSPreGEPInst;
+							    resolveBase(PreLoadPreInstRHSPreGEPInst);
 							type =
 							    AllocaPreRHSPreLoadPreInstRHSPreGEPInst
 								->getType();
@@ -208,7 +213,7 @@ void LHSExpression::getMetaData(Value* Exp) {
 		// variable is probably a function parameter
 		// or a global variable
 		// Update functionArg
-		base = dyn_cast<Instruction>(Exp);
+		base =  resolveBase(dyn_cast<Instruction>(Exp));
 		functionArg = Exp;
 		type = Exp->getType();
 	}
@@ -244,7 +249,7 @@ void RHSExpression::getMetaData(Value* Exp) {
 	if (Exp->getType()->getTypeID() == 15) {
 		LLVM_DEBUG(dbgs() << "	RHS is of pointer type \n";);
 		RHSisAddress = true;
-		base = dyn_cast<Instruction>(Exp);
+		base = resolveBase(dyn_cast<Instruction>(Exp));
 		if (!base) {
 			// The variable is not defined in the current
 			// function ie can be a parameter
@@ -262,7 +267,7 @@ void RHSExpression::getMetaData(Value* Exp) {
 				  << "\n";);
 		// check if the variable is a plain declared variable ie
 		// int x = ...
-		base = dyn_cast<Instruction>(Exp);
+		base = resolveBase(dyn_cast<Instruction>(Exp));
 		// TODO: Do I need to check if it is a global/function
 		// argument if it a alloca is found?
 		if (!base) {
@@ -279,7 +284,7 @@ void RHSExpression::getMetaData(Value* Exp) {
 		Instruction* PreInst = dyn_cast<Instruction>(RHSPreLoadInst);
 		// check if instruction is of type x = ...
 		if (AllocaInst* PreAllocaInst = dyn_cast<AllocaInst>(PreInst)) {
-			base = PreInst;
+			base = resolveBase(PreInst); //PreInst;
 			symbol = simple;
 			type = PreAllocaInst->getType();
 		} else if (LoadInst* PreLoadInst =
@@ -288,7 +293,7 @@ void RHSExpression::getMetaData(Value* Exp) {
 			Value* RHSPreLoadInst = PreLoadInst->getOperand(0);
 			if (AllocaInst* PreAllocaRHSPreLoadInst =
 				dyn_cast<AllocaInst>(RHSPreLoadInst)) {
-				base = cast<Instruction>(RHSPreLoadInst);
+				base = resolveBase(dyn_cast<Instruction>(RHSPreLoadInst));
 				symbol = pointer;
 				type = PreAllocaRHSPreLoadInst->getType();
 			}
@@ -297,7 +302,7 @@ void RHSExpression::getMetaData(Value* Exp) {
 			// check if instruction is of type x.f = ... or
 			// x -> f =
 			// ...
-			optional = PreGEPInst;
+			optional = handleGEP(PreGEPInst);
 			Value* RHSPreGEPInst;
 			for (auto& op : cast<User>(PreGEPInst)->operands()) {
 				RHSPreGEPInst = op;
@@ -308,7 +313,7 @@ void RHSExpression::getMetaData(Value* Exp) {
 			// if instruction is of type x.f = ...
 			if (AllocaInst* PreAllocaPreInstRHSPreGEPInst =
 				dyn_cast<AllocaInst>(PreInstRHSPreGEPInst)) {
-				base = PreInstRHSPreGEPInst;
+				base = resolveBase(PreInstRHSPreGEPInst);
 				symbol = dot;
 				type = PreAllocaPreInstRHSPreGEPInst->getType();
 			} else {
@@ -324,7 +329,7 @@ void RHSExpression::getMetaData(Value* Exp) {
 						dyn_cast<AllocaInst>(
 						    RHSPreLoadPreInstRHSPreGEPInst)) {
 						base =
-						    PreLoadPreInstRHSPreGEPInst;
+						    resolveBase(PreLoadPreInstRHSPreGEPInst);
 						type =
 						    AllocaPreRHSPreLoadPreInstRHSPreGEPInst
 							->getType();
@@ -334,10 +339,24 @@ void RHSExpression::getMetaData(Value* Exp) {
 			}
 		}
 	} else if (CallInst* CI = dyn_cast<CallInst>(Exp)) {
-		LLVM_DEBUG(dbgs() << "	Replace call " << *CI << "with constant"
-				  << "\n";);
-		// replace call with constant
-		symbol = constant;
+        if(Function * F = CI -> getCalledFunction()){
+            StringRef functionName = F -> getName();
+            if(functionName.startswith("_Z")){
+                Instruction * I = CI -> getNextNonDebugInstruction();
+                if(BitCastInst * CallBitCast = dyn_cast<BitCastInst>(I)){
+                    LLVM_DEBUG(dbgs() << "	Replace call " << *CI << " with new object"
+				    << "\n";);
+                    symbol = newObj;
+                    type = CallBitCast -> getDestTy();
+                    base = nullptr;
+                } else {
+                    LLVM_DEBUG(dbgs() << "	Replace call " << *CI << " with constant"
+				    << "\n";);
+		            symbol = constant;
+		            // replace call with constant
+                }
+            }
+        }
 	} else if (isa<User>(Exp)) {
 		// if we come across any other other pattern then we
 		// utilize commutative property of some operations
@@ -349,7 +368,7 @@ void RHSExpression::getMetaData(Value* Exp) {
 		}
 	} else {
 		// function parameters used directly
-		base = dyn_cast<Instruction>(Exp);
+		base = resolveBase(dyn_cast<Instruction>(Exp));
 		functionArg = Exp;
 		type = Exp->getType();
 	}
@@ -462,7 +481,7 @@ void LLVMIRPlusPlusPass::generateMetaData(StoreInst* StoreI) {
 	printExp(L);
 	LLVM_DEBUG(dbgs() << " = ";);
 	Expression* R = UpdateI->RHS;
-	if (R->RHSisAddress && L->RHSisAddress && (R->type != L->type)) {
+	if (R -> symbol != newObj && R->RHSisAddress && L->RHSisAddress && (R->type != L->type) && L -> symbol != pointer) {
 		LLVM_DEBUG(dbgs() << " & ";);
 		R->symbol = address;
 	}
@@ -472,7 +491,10 @@ void LLVMIRPlusPlusPass::generateMetaData(StoreInst* StoreI) {
 
 void LLVMIRPlusPlusPass::printExp(Expression* L) {
 	// prints the expression
-	if (L->symbol == constant) {
+	if (L -> symbol == newObj){
+        LLVM_DEBUG(dbgs() << " new ";);
+    }
+    if (L->symbol == constant) {
 		LLVM_DEBUG(dbgs() << "constant";);
 		return;
 	}
@@ -620,8 +642,8 @@ Node::Node(Instruction* I, InstMetaMap IRPlusPlus) {
 					Func = calledFunction;
 				}
 			} else {
-				CallSite cs(tempCall);
-				Value* virtFunc = cs.getCalledValue();
+				// CallSite cs(tempCall);
+				Value* virtFunc = tempCall -> getCalledOperand();
 				if (LoadInst* virtFuncLoadInst = dyn_cast<LoadInst>(virtFunc)) {
 					Value* virtFuncPtr = virtFuncLoadInst -> getPointerOperand();
 					if (GetElementPtrInst* virtFuncPtrGEPInst = dyn_cast<GetElementPtrInst>(virtFuncPtr)) {
@@ -640,6 +662,8 @@ Node::Node(Instruction* I, InstMetaMap IRPlusPlus) {
 					    dyn_cast<LoadInst>(callValue);
 					Callee = new RHSExpression(
 					    inst->getPointerOperand());
+                    Callee -> base = resolveBase(Callee -> base);
+                    
 				}
 			}
 		}
@@ -668,7 +692,8 @@ Node::Node(Instruction* I, InstMetaMap IRPlusPlus) {
 			    SuccInstruction->getParent() == parent) {
 				Node* tempNode =
 				    new Node(SuccInstruction, IRPlusPlus);
-				(tempNode->Pred).push_back(tempNode);
+				if(I -> getParent() -> hasNPredecessors(0) == false)
+                    (tempNode->Pred).push_back(tempNode);
 				Succ.push_back(tempNode);
 			}
 		} else {
@@ -745,8 +770,8 @@ void CFG::init(Function* F, InstMetaMap IRPlusPlus) {
 				// 	R1	R2	R3
 				//	\\	||     //
 				// 	 \\	||    //
-				// 	  \\    ||   //
-				// 	      endNode
+				// 	  \\||   //
+				// 	   endNode
 				(end->getRealSucc()).push_back(endNode);
 				(endNode->getRealPred()).push_back(end);
 			}
@@ -757,6 +782,55 @@ void CFG::init(Function* F, InstMetaMap IRPlusPlus) {
 
 InstMetaMap LLVMIRPlusPlusPass::getIRPlusPlus() { return IRPlusPlus; }
 FunctionToCFG LLVMIRPlusPlusPass::getCFG() { return grcfg; }
+
+ Instruction * resolveBase(Instruction * Inst){
+    if(!Inst){
+        return nullptr;
+    }
+    if(AllocaInst * I = dyn_cast<AllocaInst>(Inst)){
+        return dyn_cast<Instruction>(I);
+    }
+    if(LoadInst * LI = dyn_cast<LoadInst>(Inst)){
+        Value * op = LI -> getPointerOperand();
+        Instruction * temp = dyn_cast<Instruction>(op);
+        return resolveBase(temp);
+    } else if(BitCastInst * BCI = dyn_cast<BitCastInst>(Inst)){
+        Value * op = BCI -> getOperand(0);
+        Instruction * temp = dyn_cast<Instruction>(op);
+        return resolveBase(temp);
+    } else if(CallInst * CI = dyn_cast<CallInst>(Inst)){
+
+    }
+    return Inst;
+}
+
+bool compareGEP(GetElementPtrInst* I1, GetElementPtrInst * I2){
+    if(I1 -> getSourceElementType() != I2 -> getSourceElementType())
+        return false;
+    if(I1 -> getNumIndices() != I2 -> getNumIndices())
+        return false;
+    auto IterRange1 = I1 -> indices();
+    auto IterRange2 = I2 -> indices();
+    auto Iter1 = IterRange1.begin();
+    auto Iter2 = IterRange2.begin();
+    while(Iter1 != IterRange1.end()){
+        if(*Iter1 != *Iter2){
+            return false;
+        }
+        Iter1++;Iter2++;
+    }
+    return true;
+}
+
+Instruction *handleGEP(GetElementPtrInst* Inst){
+    for(GetElementPtrInst * I : GEPVec){
+        if(compareGEP(I, Inst)){
+            return I;
+        }
+    }
+    GEPVec.push_back(Inst);
+    return dyn_cast<Instruction>(Inst); 
+}
 
 char LLVMIRPlusPlusPass::ID = 0;
 static RegisterPass<LLVMIRPlusPlusPass> X(

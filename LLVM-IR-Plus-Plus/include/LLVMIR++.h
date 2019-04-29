@@ -42,7 +42,7 @@
 
 using namespace llvm;
 
-enum SymbolType { simple, pointer, arrow, dot, constant, address };
+enum SymbolType { simple, pointer, arrow, dot, constant, address , newObj};
 
 /* Statement 	:= LHS = RHS
  * LHS		:= x | *x | x -> f | x.f
